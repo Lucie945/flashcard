@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#23495f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Flashcard">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Flashcard</title>
 <style>
@@ -60,6 +64,17 @@ h1{margin:0;font-size:clamp(25px,4vw,39px)}
  .controls{grid-template-columns:1fr 1fr}
  .controls .primary{grid-column:1/-1;grid-row:1}
 }
+
+/* FLASHCARD_TABLET_TOUCH */
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+button,.tile,.flashcard{-webkit-tap-highlight-color:transparent}
+button,.tile{touch-action:manipulation}
+@media (pointer:coarse){
+  .tile{min-height:118px}
+  .back,.shuffle{min-height:48px}
+  .controls button{min-height:68px}
+}
+
 </style>
 </head>
 <body>
