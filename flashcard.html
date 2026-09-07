@@ -1,0 +1,3227 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#23495f">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Flashcard</title>
+<style>
+:root{
+  --bg:#f5f3ee; --panel:#ffffff; --ink:#1f2933; --muted:#6b7280;
+  --line:#dedbd3; --accent:#23495f; --accent-soft:#e4eef3;
+  --answer:#f4ead8; --shadow:0 8px 26px rgba(0,0,0,.08);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;min-height:100vh}
+button{font:inherit}
+.app{max-width:1100px;margin:auto;padding:18px}
+header{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:52px;height:52px;border-radius:14px;background:var(--accent);color:white;display:grid;place-items:center;font-size:28px}
+h1{margin:0;font-size:clamp(25px,4vw,39px)}
+.subtitle{color:var(--muted);font-size:14px;margin-top:3px}
+.card-panel{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:13px}
+.tile{border:1px solid var(--line);border-radius:17px;background:white;padding:18px;text-align:left;cursor:pointer;min-height:108px;transition:.12s}
+.tile:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(0,0,0,.07)}
+.tile strong{display:block;font-size:21px;margin-bottom:7px}
+.tile span{color:var(--muted);font-size:14px}
+.discipline-icon{font-size:28px;margin-bottom:8px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.back{border:1px solid var(--line);background:white;border-radius:12px;padding:10px 14px;cursor:pointer;font-weight:700}
+.breadcrumb{font-weight:700;color:var(--accent)}
+.study{max-width:950px;margin:auto}
+.flash-wrap{perspective:1300px;min-height:500px}
+.flashcard{position:relative;width:100%;min-height:500px;transform-style:preserve-3d;transition:transform .38s;cursor:pointer}
+.flashcard.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;border-radius:24px;border:2px solid var(--line);
+      display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
+      padding:36px;background:white;box-shadow:var(--shadow);overflow:hidden}
+.face.answer{transform:rotateY(180deg);background:var(--answer)}
+.face-label{position:absolute;top:18px;left:20px;color:var(--muted);font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.question-text{font-weight:700;font-size:clamp(27px,4.5vw,46px);line-height:1.22;white-space:pre-line}
+.answer-text{font-size:clamp(28px,4vw,43px);line-height:1.25;white-space:pre-line}
+.card-image{max-width:88%;max-height:360px;object-fit:contain;border-radius:12px}
+.question-text.with-image{font-size:clamp(18px,3vw,28px);margin-top:18px}
+.controls{display:grid;grid-template-columns:1fr 1.35fr 1fr;gap:11px;margin-top:14px}
+.controls button{min-height:62px;border-radius:15px;border:1px solid var(--line);font-weight:700;font-size:18px;cursor:pointer;background:white}
+.controls .primary{background:var(--accent);color:white;border-color:var(--accent)}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 2px;color:var(--muted);font-weight:700;flex-wrap:wrap}
+.shuffle{border:1px solid var(--line);background:white;border-radius:11px;padding:8px 12px;cursor:pointer}
+.hidden{display:none!important}
+.empty{color:var(--muted);padding:30px;text-align:center}
+.note{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.4}
+@media(max-width:650px){
+ .app{padding:10px}
+ .flash-wrap,.flashcard{min-height:58vh}
+ .face{padding:28px 17px}
+ .card-image{max-height:42vh}
+ .controls{grid-template-columns:1fr 1fr}
+ .controls .primary{grid-column:1/-1;grid-row:1}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <div class="logo">🗂️</div>
+    <div>
+      <h1>Flashcard</h1>
+      <div class="subtitle" id="subtitle">Choisis une discipline</div>
+    </div>
+  </div>
+</header>
+
+<section id="home" class="card-panel">
+  <h2 style="margin-top:0">Disciplines</h2>
+  <div id="disciplineGrid" class="grid"></div>
+  
+</section>
+
+<section id="themes" class="hidden">
+  <div class="topbar">
+    <button class="back" id="themesBack">← Disciplines</button>
+    <div class="breadcrumb" id="disciplineName"></div>
+  </div>
+  <div class="card-panel">
+    <h2 style="margin-top:0">Choisir un thème</h2>
+    <div id="themeGrid" class="grid"></div>
+  </div>
+</section>
+
+<section id="study" class="study hidden">
+  <div class="topbar">
+    <button class="back" id="studyBack">← Thèmes</button>
+    <div class="breadcrumb" id="studyTitle"></div>
+    <button class="shuffle" id="shuffle">🔀 Mélanger</button>
+  </div>
+  <div class="meta">
+    <span id="progress"></span>
+    <span id="modeHint">Touchez la carte pour la retourner</span>
+  </div>
+  <div class="flash-wrap">
+    <div class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Retourner la carte">
+      <div class="face question">
+        <div class="face-label">Question</div>
+        <img id="questionImage" class="card-image hidden" alt="">
+        <div id="questionText" class="question-text"></div>
+      </div>
+      <div class="face answer">
+        <div class="face-label">Réponse</div>
+        <div id="answerText" class="answer-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="prev">← Précédente</button>
+    <button id="flip" class="primary">Retourner</button>
+    <button id="next">Suivante →</button>
+  </div>
+</section>
+</div>
+
+<script>
+window.FLASHCARDS_DB = {
+  "version": 1,
+  "disciplines": [
+    {
+      "name": "Histoire",
+      "themes": [
+        {
+          "name": "Intro",
+          "cards": [
+            {
+              "question": "Combien y a-t-il de périodes historiques ?",
+              "image": "",
+              "answer": "Réponse :\nCinq"
+            },
+            {
+              "question": "Comment s'appellent les chercheurs en histoire ?",
+              "image": "",
+              "answer": "Réponse :\nLes historiens"
+            },
+            {
+              "question": "Combien d'années y a-t-il dans un millénaire ?",
+              "image": "",
+              "answer": "Réponse :\n1000"
+            },
+            {
+              "question": "Quel événement marque le début du moyen âge ?",
+              "image": "",
+              "answer": "Réponse :\nLa chute de l'Empire romain."
+            },
+            {
+              "question": "Quand a eu lieu la chute de l'Empire romain ?",
+              "image": "",
+              "answer": "Réponse :\nEn 476"
+            },
+            {
+              "question": "Quelle période historique se termine par la Révolution française ?",
+              "image": "",
+              "answer": "Réponse :\nL'époque moderne"
+            },
+            {
+              "question": "A quoi sert une frise chronologique ?",
+              "image": "",
+              "answer": "Réponse :\nA représenter le temps et à situer des événements."
+            },
+            {
+              "question": "Comment s'appelle les indices qui permettent aux historiens d'effectuer leurs recherches ?",
+              "image": "",
+              "answer": "Réponse :\nLes sources"
+            },
+            {
+              "question": "Quelle invention marque la fin de la préhistoire ?",
+              "image": "",
+              "answer": "Réponse :\nC'est l'invention de l'écriture. (Vers -3000)"
+            },
+            {
+              "question": "Combien d'années y a-t-il dans un siècle ?",
+              "image": "",
+              "answer": "Réponse :\n100"
+            },
+            {
+              "question": "A quel siècle, l'année 1492 appartient elle ?",
+              "image": "",
+              "answer": "Réponse :\nAu XVème siècle. (15)"
+            },
+            {
+              "question": "A quel siècle, l'année 476 appartient elle ?",
+              "image": "",
+              "answer": "Réponse :\nAu Vème siècle. (5)"
+            }
+          ]
+        },
+        {
+          "name": "Préhistoire",
+          "cards": [
+            {
+              "question": "Cite les deux périodes de la préhistoire ?",
+              "image": "",
+              "answer": "Réponse :\nLe paléolithique et le néolithique"
+            },
+            {
+              "question": "Quel était le mode de vie des humains du paléolithique ?",
+              "image": "",
+              "answer": "Réponse :\nIls étaient nomades."
+            },
+            {
+              "question": "Quand apparaissent les premiers humains ?",
+              "image": "",
+              "answer": "Réponse :\nIl y a environ 3 millions d'années"
+            },
+            {
+              "question": "Qu'est-ce qui différencie les modes de vie des humains du paléolithique et du néolithique ?",
+              "image": "",
+              "answer": "Réponse :\nPaléolithique → nomades\nNéolithique → sédentaires"
+            },
+            {
+              "question": "Quelle invention marque la fin de la préhistoire ?",
+              "image": "",
+              "answer": "Réponse :\nC'est l'invention de l'écriture. (Vers -3000)"
+            },
+            {
+              "question": "Comment s'alimentaient les humains du paléolithique ?",
+              "image": "",
+              "answer": "Réponse :\nIls s'alimentaient grâce à la chasse, la pêche et la cueillette."
+            }
+          ]
+        },
+        {
+          "name": "Antiquité",
+          "cards": [
+            {
+              "question": "Quel événement marque la fin de l'Antiquité ?",
+              "image": "",
+              "answer": "Réponse :\nC'est la chute de l'Empire romain. (En 476)"
+            },
+            {
+              "question": "Cite deux grandes civilisations qui ont marqué l'antiquité.",
+              "image": "",
+              "answer": "Réponses possibles :\n- les Égyptiens\n- les Grecs\n- les Romains\n- les Gaulois\n- les Perses\n- les Mayas\n- les Sumériens"
+            },
+            {
+              "question": "Quel est le nom de Marseille à sa fondation ?",
+              "image": "",
+              "answer": "Réponse :\nMassalia"
+            },
+            {
+              "question": "Qu'est-ce qui entraîne la chute de l'Empire romain en 476 ?",
+              "image": "",
+              "answer": "Réponse :\nLes invasions barbares"
+            },
+            {
+              "question": "Quel est le chef Gaulois qui capitule à Alésia ?",
+              "image": "",
+              "answer": "Réponse :\nVercingétorix"
+            },
+            {
+              "question": "Donne la date de la bataille d'Alésia",
+              "image": "",
+              "answer": "Réponse :\n- 52"
+            },
+            {
+              "question": "Quelle est la date de la fondation de Massalia ?",
+              "image": "",
+              "answer": "Réponse :\nEn – 600"
+            },
+            {
+              "question": "Par quel événement la Gaule devient-elle romaine ?",
+              "image": "",
+              "answer": "Réponse :\nLa capitulation à la bataille d'Alésia (En -52)."
+            },
+            {
+              "question": "Quelle invention marque le début de l'antiquité ?",
+              "image": "",
+              "answer": "Réponse :\nC'est l'invention de l'écriture. (Vers -3000)"
+            },
+            {
+              "question": "Quel est le général romain qui conquit la Gaule ?",
+              "image": "",
+              "answer": "Réponse :\nJules César"
+            },
+            {
+              "question": "Quel peuple fonde Massalia ?",
+              "image": "",
+              "answer": "Réponse :\nLes Phocéens (des Grecs)"
+            },
+            {
+              "question": "Donne la définition de « civilisation ».",
+              "image": "",
+              "answer": "Définition :\nGroupe de personnes qui vivent dans un même espace géographique, à la même période et qui partagent le même mode de vie."
+            }
+          ]
+        },
+        {
+          "name": "Moyen âge",
+          "cards": [
+            {
+              "question": "Quel événement marque le début du moyen âge ?",
+              "image": "",
+              "answer": "Réponse :\nC'est la chute de l'Empire romain. (En 476)"
+            },
+            {
+              "question": "Donne la définition de dynastie ?",
+              "image": "",
+              "answer": "Dynastie :\nSuccession de rois appartenant à la même famille."
+            },
+            {
+              "question": "Quel est l'ordre où il y a le plus de personne ?",
+              "image": "",
+              "answer": "Le tiers-états"
+            },
+            {
+              "question": "Quels sont les deux ordres qui ont le plus de pouvoir ?",
+              "image": "",
+              "answer": "- la noblesse\n- le clergé"
+            },
+            {
+              "question": "Combien de temps (environ) dure le moyen âge ?",
+              "image": "",
+              "answer": "1000 ans"
+            },
+            {
+              "question": "Quand se termine le moyen âge ? Par quel événement ?",
+              "image": "",
+              "answer": "En 1492.\nLa découverte de l'Amérique par Christophe Colomb"
+            },
+            {
+              "question": "Quel est le surnom de Louis IX ?\nDurant quelle période historique a-t-il régné ?",
+              "image": "",
+              "answer": "Saint Louis\nMoyen âge"
+            },
+            {
+              "question": "Cite deux rôles du clergé au moyen âge.",
+              "image": "",
+              "answer": "- prier\n- enseigner\n- soigner\n- copier (les scribes)"
+            },
+            {
+              "question": "Cite les 4 dynasties du moyen âge.",
+              "image": "",
+              "answer": "- Les Mérovingiens\n- Les Carolingiens\n- Les Capétiens\n- Les Valois"
+            },
+            {
+              "question": "Comment appelle-t-on l'organisation de la société du moyen âge ?",
+              "image": "",
+              "answer": "La société féodale"
+            },
+            {
+              "question": "Pourquoi Louis IX est-il aimé par son peuple ?",
+              "image": "",
+              "answer": "Car il aide à nourrir les pauvres et les malades."
+            },
+            {
+              "question": "Qu'est-ce qu'une croisade ?\nA combien Louis IX a-t-il participé ?",
+              "image": "",
+              "answer": "C'est une guerre entre chrétiens et musulmans pour conquérir la ville de Jérusalem.\nDeux"
+            },
+            {
+              "question": "Quels sont les deux rôles que peuvent avoir les seigneurs au moyen âge ?",
+              "image": "",
+              "answer": "Suzerains ou vassaux"
+            },
+            {
+              "question": "Qu'est-ce qui entraîne la chute de l'Empire romain en 476 ?",
+              "image": "",
+              "answer": "Réponse :\nLes invasions barbares"
+            },
+            {
+              "question": "Donne la définition de « Serf ».",
+              "image": "",
+              "answer": "Serf :\nPersonne entièrement soumise à un seigneur."
+            },
+            {
+              "question": "Donne la définition de « Vilain ».",
+              "image": "",
+              "answer": "Vilain :\nPaysan libre, au Moyen Âge."
+            },
+            {
+              "question": "Quels sont les trois ordres du moyen âge ?",
+              "image": "",
+              "answer": "La noblesse\nLe clergé\nLe tiers-état"
+            },
+            {
+              "question": "Quel est le rôle de la noblesse (les seigneurs) ?",
+              "image": "",
+              "answer": "Ce sont ceux qui se battent."
+            },
+            {
+              "question": "Donne la définition de « Corvée ».",
+              "image": "",
+              "answer": "Corvée :\nTravail gratuit que les paysans doivent à leur seigneur."
+            },
+            {
+              "question": "Donne la définition de « Charte ».",
+              "image": "",
+              "answer": "Charte :\nC'est un contrat signé entre seigneur et bourgeois fixant les droits et les libertés d'une ville."
+            },
+            {
+              "question": "Quel est le rôle du clergé (les hommes d'église) ?",
+              "image": "",
+              "answer": "Ce sont ceux qui prient."
+            },
+            {
+              "question": "Quel est le rôle du tiers-état (surtout des paysans) ?",
+              "image": "",
+              "answer": "Ce sont ceux qui travaillent."
+            },
+            {
+              "question": "Donne la définition de « Dîmes ».",
+              "image": "",
+              "answer": "Dîmes :\nPart de leur récolte que les paysans doivent donner à l’Église."
+            },
+            {
+              "question": "Donne la définition de «Corporation ».",
+              "image": "",
+              "answer": "Corporation :\nGroupe de personnes faisant le même métier, avec ses règles et ses privilèges."
+            }
+          ]
+        },
+        {
+          "name": "Epoque moderne",
+          "cards": [
+            {
+              "question": "Quel événement marque le début de l'époque moderne ? En quelle année ?",
+              "image": "",
+              "answer": "La découverte de l'Amérique par Christophe Colomb en 1492"
+            },
+            {
+              "question": "Quel événement marque la fin des temps modernes ? En quelle année ?",
+              "image": "",
+              "answer": "La Révolution française en 1789"
+            },
+            {
+              "question": "Le long de quel fleuve, les châteaux de la renaissance se trouve-t-il ?Donne le nom de l'un de ces châteaux.",
+              "image": "",
+              "answer": "La Loire\n- Chambord\n- Blois\n- Chenonceau\n- Clos Lucé\n- Amboise"
+            },
+            {
+              "question": "Quelles sont les deux religions qui s'opposent en France et en Europe de l'Ouest à l'époque des temps modernes ?",
+              "image": "",
+              "answer": "Le catholicisme et le protestantisme"
+            },
+            {
+              "question": "En quelle année, l'esclavage est-il abolit (=interdit) en France ?",
+              "image": "",
+              "answer": "1848"
+            },
+            {
+              "question": "Où les Européens sont-ils allés chercher les esclaves après avoir tué une grande partie des Indiens d'Amérique ?",
+              "image": "",
+              "answer": "En Afrique"
+            },
+            {
+              "question": "Quel roi met fin aux guerres de religions ?\nPar quel document ?\nEn quelle année ?",
+              "image": "",
+              "answer": "Henri IV\nL’Édit de Nantes\nEn 1598"
+            },
+            {
+              "question": "Quel roi symbolise la monarchie absolue ?",
+              "image": "",
+              "answer": "Louis IX"
+            },
+            {
+              "question": "Quelles sont les trois causes de disparition des Indiens d'Amérique ?",
+              "image": "",
+              "answer": "- les conquêtes européennes\n- l'esclavage par les Européens\n- les maladies amenées par les Européens"
+            },
+            {
+              "question": "Pourquoi peut-on dire que les Européens dominent les monde aux temps modernes ?",
+              "image": "",
+              "answer": "- les grandes découvertes\n- le commerce triangulaire"
+            },
+            {
+              "question": "Donne la définition de « Monarchie absolue ».",
+              "image": "",
+              "answer": "Monarchie absolue :\nGouvernement dans lequel le pouvoir est concentré dans les mains d'un seul homme : le roi."
+            },
+            {
+              "question": "Qui invente l'imprimerie ?\nEn quelle année ?",
+              "image": "",
+              "answer": "Gutenberg\nEn 1455"
+            },
+            {
+              "question": "Pourquoi les navigateurs européens se lancent-ils dans de grandes expéditions ?",
+              "image": "",
+              "answer": "- par soif d'aventures et de curiosité\n- pour trouver de nouveaux chemins pour le commerce"
+            },
+            {
+              "question": "Qu’amenaient les Européens en Afrique à échanger contre les esclaves ?",
+              "image": "",
+              "answer": "- des pacotilles\n- des armes à feu\n- de l’alcool"
+            },
+            {
+              "question": "Donne la définition de « Mécène ».",
+              "image": "",
+              "answer": "Mécène :\nSeigneur ou riche bourgeois qui encourage, protège et finance des artistes."
+            },
+            {
+              "question": "Donne la définition de « Humanisme ».",
+              "image": "",
+              "answer": "L'Humanisme :\nNouvelle façon de penser, pendant la Renaissance, qui cherche à valoriser l'Homme."
+            },
+            {
+              "question": "Que ramenaient d'Amérique les Européens pour les vendre dans leur pays d'origine ?",
+              "image": "",
+              "answer": "-du sucre\n- du tabac\n- du coton"
+            },
+            {
+              "question": "Qu'est-ce que la Renaissance ?",
+              "image": "",
+              "answer": "Un mouvement artistique, scientifique et des idées du XVIème siècle qui naît à Florence en Italie et qui redécouvre l'Antiquité"
+            },
+            {
+              "question": "Quel navigateur découvre le Canada ?",
+              "image": "",
+              "answer": "Jacques Cartier"
+            },
+            {
+              "question": "Quel navigateur entreprend le premier tour du monde ?",
+              "image": "",
+              "answer": "Fernand de Magellan"
+            },
+            {
+              "question": "Quel roi initie la Renaissance en France ?",
+              "image": "",
+              "answer": "François Ier"
+            },
+            {
+              "question": "Cite 3 personnages de la Renaissance.",
+              "image": "",
+              "answer": "- François Ier\n- Léonard de Vinci\n- Shakespeare\n- Rabelais\n- Raphaël\n- Michel Ange\n- …"
+            },
+            {
+              "question": "Quel navigateur découvre le chemin le plus court pour rallier les Indes depuis l'Europe ?",
+              "image": "",
+              "answer": "Vasco de Gama"
+            },
+            {
+              "question": "Comment s'appelle les bateaux qui permettent aux navigateurs de partir en expéditions ?",
+              "image": "",
+              "answer": "Des caravelles"
+            }
+          ]
+        },
+        {
+          "name": "Contemporraine 1",
+          "cards": [
+            {
+              "question": "En quelle année commence la Révolution française ?",
+              "image": "",
+              "answer": "Réponse : 1789"
+            },
+            {
+              "question": "Quel événement marque le début de la Révolution française et à quelle date a-t-il lieu ?",
+              "image": "",
+              "answer": "Réponse : La prise de la Bastille, le 14 juillet 1789"
+            },
+            {
+              "question": "Que se passe-t-il le 20 juin 1789 ?",
+              "image": "",
+              "answer": "Réponse : Le serment du Jeu de paume"
+            },
+            {
+              "question": "Quelle est la définition de l’Assemblée nationale ?",
+              "image": "",
+              "answer": "Réponse : Réunion des députés représentant la nation, c’est-à-dire le peuple"
+            },
+            {
+              "question": "Comment Napoléon Bonaparte prend-il le pouvoir en 1799 ?",
+              "image": "",
+              "answer": "Réponse : Par un coup d’État"
+            },
+            {
+              "question": "En quelle année Napoléon devient-il empereur ?",
+              "image": "",
+              "answer": "Réponse : En 1804"
+            },
+            {
+              "question": "Sous quel nom Napoléon devient-il empereur ?",
+              "image": "",
+              "answer": "Réponse : Napoléon Ier"
+            },
+            {
+              "question": "Quelle est la dernière bataille de Napoléon ?",
+              "image": "",
+              "answer": "Réponse : Waterloo"
+            },
+            {
+              "question": "Quelle est la date de la Déclaration des droits de l’homme et du citoyen ?",
+              "image": "",
+              "answer": "1848"
+            },
+            {
+              "question": "Pourquoi la Révolution française éclate-t-elle ?",
+              "image": "",
+              "answer": "Réponse : À cause des famines, des inégalités entre les ordres et des crises financières"
+            },
+            {
+              "question": "Où Louis XVI est-il arrêté en 1791 ?",
+              "image": "",
+              "answer": "Réponse : À Varennes"
+            },
+            {
+              "question": "En quelle année la monarchie est-elle abolie ?",
+              "image": "",
+              "answer": "Réponse : En 1792"
+            },
+            {
+              "question": "Cite une réalisation de Napoléon qui existe encore aujourd’hui.",
+              "image": "",
+              "answer": "Réponse : le Code civilles préfetsles lycéesle baccalauréatla Légion d’honneurla Banque de France"
+            },
+            {
+              "question": "Quel régime politique est proclamé en 1870 ?",
+              "image": "",
+              "answer": "Réponse : La IIIe République"
+            },
+            {
+              "question": "Que devient l’école publique avec les lois de Jules Ferry ?",
+              "image": "",
+              "answer": "Réponse : Elle devient gratuite, obligatoire et laïque"
+            },
+            {
+              "question": "Quelle machine est à l’origine de la révolution industrielle ?",
+              "image": "",
+              "answer": "Réponse : La machine à vapeur"
+            },
+            {
+              "question": "Quelle bataille marque la première grande victoire de l’armée révolutionnaire française ? En quelle année ?",
+              "image": "",
+              "answer": "Réponse : La bataille de Valmy en 1792"
+            },
+            {
+              "question": "Qui est exécuté en 1793, marquant une rupture définitive avec le passé ?",
+              "image": "",
+              "answer": "Réponse : Louis XVI"
+            },
+            {
+              "question": "Cite un chef de la Révolution française.",
+              "image": "",
+              "answer": "Réponse : Maximilien Robespierre Georges DantonJean-Paul Marat"
+            },
+            {
+              "question": "En quelle année la Première République est-elle proclamée ?",
+              "image": "",
+              "answer": "Réponse : En 1792"
+            },
+            {
+              "question": "Comment appelle-t-on le départ des paysans vers les villes ?",
+              "image": "",
+              "answer": "Réponse : L’exode rural"
+            },
+            {
+              "question": "Comment appelle-t-on les personnes qui travaillent dans les usines ?",
+              "image": "",
+              "answer": "Réponse : Les ouvriers"
+            },
+            {
+              "question": "Quel savant français découvre le rôle des microbes dans certaines maladies ?",
+              "image": "",
+              "answer": "Réponse : Louis Pasteur"
+            },
+            {
+              "question": "Quel moyen de transport se développe énormément au XIXe siècle ?",
+              "image": "",
+              "answer": "Réponse : Le chemin de fer"
+            },
+            {
+              "question": "Époque contemporaine\nGroupe H",
+              "image": "",
+              "answer": "Époque contemporaine\nGroupe H"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Géographie",
+      "themes": [
+        {
+          "name": "Qu'est-ce que la géographie",
+          "cards": [
+            {
+              "question": "Donne la définition de planisphère.",
+              "image": "",
+              "answer": "Représentation plane de la Terre"
+            },
+            {
+              "question": "Donne la définition d'échelle.",
+              "image": "",
+              "answer": "Permet de comparer les distances sur la carte et en réalité."
+            },
+            {
+              "question": "A quoi sert un titre sur une carte ?",
+              "image": "",
+              "answer": "A expliquer de quoi parle la carte."
+            },
+            {
+              "question": "Qu'est-ce que le schéma d'un paysage ?",
+              "image": "",
+              "answer": "Dessin représentant le plus précisément possible le paysage que l'on observe."
+            },
+            {
+              "question": "Cite au moins 3 outils du géographe.",
+              "image": "",
+              "answer": "boussole - graphique – photographie – tableau – photo satellite – schéma – texte – croquis – globe – planisphère – plan"
+            },
+            {
+              "question": "Donne la définition d'orientation.",
+              "image": "",
+              "answer": "Permet d'orienter la carte, de savoir dans quelle direction se trouve le Nord."
+            },
+            {
+              "question": "Donne la définition de carte.",
+              "image": "",
+              "answer": "Représentation plane d'un vaste espace."
+            },
+            {
+              "question": "Qu'est-ce que le croquis d'un paysage ?",
+              "image": "",
+              "answer": "Dessin représentant les éléments essentiels du paysage que l'on observe."
+            },
+            {
+              "question": "Donne la définition de légende.",
+              "image": "",
+              "answer": "Donne les explications des signes et/ou des couleurs utilisées sur la carte."
+            },
+            {
+              "question": "De quel origine vient le mot géographie ? Qu'est-ce qu'il veut dire ?",
+              "image": "",
+              "answer": "- du grec\n- dessin ou représentation de la Terre"
+            },
+            {
+              "question": "Donne la définition d'un plan.",
+              "image": "",
+              "answer": "Représentation plane, vue du dessus, d'un espace peu étendu."
+            },
+            {
+              "question": "Cite au moins deux activités du géographe.",
+              "image": "",
+              "answer": "- mener des enquêtes\n- observer sur le terrain\n- réaliser des cartes\n- analyser des données"
+            }
+          ]
+        },
+        {
+          "name": "Les représentations de la Terre",
+          "cards": [
+            {
+              "question": "Qu'ont inventé les géographes pour se repérer sur la Terre ?",
+              "image": "",
+              "answer": "Un quadrillage imaginaire"
+            },
+            {
+              "question": "Qu'est-ce qu'un planisphère ?",
+              "image": "",
+              "answer": "Une représentation de la Terre à plat."
+            },
+            {
+              "question": "Quelle est la position de la Terre dans le système solaire ?",
+              "image": "",
+              "answer": "D'est la troisième planète en partant du Soleil."
+            },
+            {
+              "question": "Comment s'appelle le parallèle à 0° ?",
+              "image": "",
+              "answer": "L’équateur"
+            },
+            {
+              "question": "Comment surnomme-t-on la Terre ?",
+              "image": "",
+              "answer": "La planète bleue"
+            },
+            {
+              "question": "Quelle est la forme de la Terre ?",
+              "image": "",
+              "answer": "D'est une sphère."
+            },
+            {
+              "question": "Qu'est-ce que les méridiens ?",
+              "image": "",
+              "answer": "De sont les lignes verticales du quadrillages imaginaires."
+            },
+            {
+              "question": "A quelle longitude se trouve le méridien de Greenwich ?",
+              "image": "",
+              "answer": "0°"
+            },
+            {
+              "question": "Quelle est la représentation de la Terre la plus proche de la réalité ?",
+              "image": "",
+              "answer": "C'est le globe."
+            },
+            {
+              "question": "Quelle est la composition de la Terre ?",
+              "image": "",
+              "answer": "71% d'eau et 29% de terre."
+            },
+            {
+              "question": "Que permettent de définir les parallèles ?",
+              "image": "",
+              "answer": "La latitude"
+            },
+            {
+              "question": "Quelle est la position de la Terre dans le système solaire ?",
+              "image": "",
+              "answer": "C'est la troisième planète en partant du Soleil."
+            }
+          ]
+        },
+        {
+          "name": "Mon lieu de vie",
+          "cards": [
+            {
+              "question": "Combien y a-t-il de communes en France ?",
+              "image": "",
+              "answer": "36000"
+            },
+            {
+              "question": "Combien y a-t-il de département en France ?\nDe régions ?",
+              "image": "",
+              "answer": "101\n18"
+            },
+            {
+              "question": "Comment se nomme notre région ?",
+              "image": "",
+              "answer": "Provence-Alpes-Côte-d'Azur"
+            },
+            {
+              "question": "Comment se nomme notre département ?\nQuel est son numéro ?",
+              "image": "",
+              "answer": "Bouches-du-Rhône\n13"
+            },
+            {
+              "question": "A quel continent la France appartient-elle ?",
+              "image": "",
+              "answer": "A l'Europe"
+            },
+            {
+              "question": "Nomme les 4 étendues d'eau qui bordent la France.",
+              "image": "",
+              "answer": "- La Manche\n- La mer du Nord\n- L'océan Atlantique\n- La mer Méditerranée"
+            },
+            {
+              "question": "Combien y a-t-il d'habitants dans un village ?",
+              "image": "",
+              "answer": "Moins de 2000"
+            },
+            {
+              "question": "Combien y a-t-il de communes de plus de 100 000 habitants en France ?\nCite en en 5.",
+              "image": "",
+              "answer": "36\nRéponses possibles : Lille, Paris, Strasbourg, Rennes, Nantes, Clermont-Ferrand, Lyon, Bordeaux, Toulouse, Marseille, Nice …"
+            },
+            {
+              "question": "Cite les 5 fleuves les plus importants de la France.",
+              "image": "",
+              "answer": "- La Loire\n- La Seine\n- Le Rhône\n- La Garonne\n- Le Rhin"
+            },
+            {
+              "question": "Cite les 6 massifs de montagnes français.",
+              "image": "",
+              "answer": "- Vosges\n- Jura\n- Alpes\n- Massif central\n- Pyrénées\n- Massif corse"
+            }
+          ]
+        },
+        {
+          "name": "Les types de paysage",
+          "cards": [
+            {
+              "question": "Qu'est-ce qu'un delta ?",
+              "image": "",
+              "answer": "C'est une embouchure à plusieurs bras."
+            },
+            {
+              "question": "Comment appelle-t-on l'endroit le plus bas dans une vallée ?",
+              "image": "",
+              "answer": "Le col"
+            },
+            {
+              "question": "Quelle montagne doit on traverser pour aller en Espagne ?",
+              "image": "",
+              "answer": "Les Pyrénées"
+            },
+            {
+              "question": "Donne la définition d'altitude ?",
+              "image": "",
+              "answer": "C'est la hauteur d'un point par rapport au niveau de la mer."
+            },
+            {
+              "question": "Cite les 5 plus grands fleuves de France ?",
+              "image": "",
+              "answer": "- le Rhône\n- la Garonne\n- la Seine\n- la Loire\n- le Rhin"
+            },
+            {
+              "question": "Comment se nomme la région élevé d'un fleuve ?\nLa région basse ?",
+              "image": "",
+              "answer": "L'amont\nL'aval"
+            },
+            {
+              "question": "Donne la définition de relief.",
+              "image": "",
+              "answer": "C'est l'ensemble des creux et des bosses qui forme la topographie de la Terre."
+            },
+            {
+              "question": "Comment peut-on identifier la rive gauche ou droite d'un fleuve ?",
+              "image": "",
+              "answer": "En regardant le sens du courant."
+            },
+            {
+              "question": "Comment appelle-t-on le creux entre deux collines ?",
+              "image": "",
+              "answer": "Un vallon"
+            },
+            {
+              "question": "Cite les six grands massifs montagneux français.",
+              "image": "",
+              "answer": "- les Alpes\n-les Pyrénées\n- le Jura\n- les Vosges\n- le massif central\n- le massif corse"
+            },
+            {
+              "question": "Comment appelle-t-on les boucles formées par un cours d'eau ?",
+              "image": "",
+              "answer": "Les méandres"
+            },
+            {
+              "question": "A partir de quelle altitude peut-on dire que l'on est en montage ?",
+              "image": "",
+              "answer": "600 mètres"
+            },
+            {
+              "question": "Qu'est-ce qu'un plateau ?",
+              "image": "",
+              "answer": "Une zone plate de haute altitude."
+            },
+            {
+              "question": "Comment se nomme l'endroit où un fleuve se jette dans la mer ou l'océan ?",
+              "image": "",
+              "answer": "L'embouchure"
+            },
+            {
+              "question": "Comment appelle-t-on les rivières qui se jettent dans un fleuve par rapport à ce fleuve ?",
+              "image": "",
+              "answer": "Ce sont ses affluents."
+            },
+            {
+              "question": "Qu'est-ce que le bassin fluvial ?",
+              "image": "",
+              "answer": "C'est la région autour d'un fleuve et de ses affluents."
+            },
+            {
+              "question": "Comment appelle-t-on le creux entre deux montagnes ?",
+              "image": "",
+              "answer": "Une vallée"
+            },
+            {
+              "question": "Quelle montagne doit on traverser pour aller en Italie ?",
+              "image": "",
+              "answer": "Les Alpes"
+            },
+            {
+              "question": "Comment nomme -t-on le chemin dans lequel coule un cours d'eau ?",
+              "image": "",
+              "answer": "Le lit"
+            },
+            {
+              "question": "Entre quelles altitudes parle-t-on de colline ?",
+              "image": "",
+              "answer": "Entre 50 et 600 mètres"
+            },
+            {
+              "question": "Qu'est-ce qu'une plaine ?",
+              "image": "",
+              "answer": "Une zone plate de basse altitude."
+            },
+            {
+              "question": "Comment se nomme l'endroit où se rejoignent plusieurs cours d'eau ?",
+              "image": "",
+              "answer": "Un confluent"
+            },
+            {
+              "question": "Eonne la définition d'estuaire.",
+              "image": "",
+              "answer": "C'est un élargissement du fleuve au niveau de l'embouchure."
+            },
+            {
+              "question": "Comment appelle-t-on le bord de mer en géographie ?",
+              "image": "",
+              "answer": "Le littoral"
+            }
+          ]
+        },
+        {
+          "name": "Repères",
+          "cards": [
+            {
+              "question": "Quel pays a quitté l'union Européenne en 2020 ?",
+              "image": "",
+              "answer": "Le Royaume – Uni"
+            },
+            {
+              "question": "Nomme les cinq océans de la Terre.",
+              "image": "",
+              "answer": "- Atlantique\n- Pacifique\n- Indien\n- Arctique\n- Antarctique"
+            },
+            {
+              "question": "Cite les 5 fleuves les plus importants de la France.",
+              "image": "",
+              "answer": "- La Loire\n- La Seine\n- Le Rhône\n- La Garonne\n- Le Rhin"
+            },
+            {
+              "question": "Cite les 6 massifs de montagnes français.",
+              "image": "",
+              "answer": "- Vosges\n- Jura\n- Alpes\n- Massif central\n- Pyrénées\n- Massif corse"
+            },
+            {
+              "question": "Nomme les six continents de la Terre.",
+              "image": "",
+              "answer": "- Amérique\n- Afrique\n- Asie\n- Europe\n- Océanie\n- Antarctique"
+            },
+            {
+              "question": "Combien de pays composent l'Union européenne ?",
+              "image": "",
+              "answer": "26"
+            },
+            {
+              "question": "Pourquoi est-ce qu'il n'y a pas de continent Arctique ?",
+              "image": "",
+              "answer": "Il n' y a pas de sol sous la banquise au pôle nord."
+            },
+            {
+              "question": "Nomme 3 lignes imaginaires qui traverse le globe.",
+              "image": "",
+              "answer": "Réponses possibles :\n- Cercles polaires Arctique ou Antarctique\n- Tropiques du Cancer ou du Capricorne\n- Équateur"
+            },
+            {
+              "question": "Qu'est-ce que l'UE ?",
+              "image": "",
+              "answer": "l'Union européenne"
+            },
+            {
+              "question": "A quoi servent les lignes imaginaires sur le planisphère ?",
+              "image": "",
+              "answer": "A se repérer."
+            },
+            {
+              "question": "Quel pays de l'Union Européenne compte le plus d'habitants ?\nLe moins ?",
+              "image": "",
+              "answer": "L'Allemagne\nMalte"
+            },
+            {
+              "question": "Nomme les 4 étendues d'eau qui bordent la France.",
+              "image": "",
+              "answer": "- La Manche\n- La mer du Nord\n- L'océan Atlantique\n- La mer Méditerranée"
+            }
+          ]
+        },
+        {
+          "name": "Climat",
+          "cards": [
+            {
+              "question": "Qu’est-ce que le climat ?",
+              "image": "",
+              "answer": "Le temps qu’il fait habituellement dans un lieu sur une longue période."
+            },
+            {
+              "question": "Quels éléments permettent de décrire un climat ?",
+              "image": "",
+              "answer": "La température, les précipitations et l’ensoleillement."
+            },
+            {
+              "question": "Que sont les précipitations ?",
+              "image": "",
+              "answer": "L’humidité qui tombe du ciel sous forme de pluie, de neige ou de grêle."
+            },
+            {
+              "question": "Dans quelle zone climatique se situe la France ?",
+              "image": "",
+              "answer": "La France est située en zone tempérée."
+            },
+            {
+              "question": "Combien de grands climats distingue-t-on en France ?",
+              "image": "",
+              "answer": "On distingue quatre grands climats."
+            },
+            {
+              "question": "Quels sont les quatre grands climats de France ?",
+              "image": "",
+              "answer": "Le climat océanique, continental, méditerranéen et montagnard."
+            },
+            {
+              "question": "Où se trouve le climat océanique en France ?",
+              "image": "",
+              "answer": "À l’ouest de la France."
+            },
+            {
+              "question": "Comment est le climat océanique ?",
+              "image": "",
+              "answer": "Hivers doux, étés frais et précipitations régulières et abondantes."
+            },
+            {
+              "question": "Où se trouve le climat continental en France ?",
+              "image": "",
+              "answer": "À l’est de la France."
+            },
+            {
+              "question": "Comment est le climat continental ?",
+              "image": "",
+              "answer": "Hivers rudes et enneigés, étés avec de fréquents orages."
+            },
+            {
+              "question": "Où se trouve le climat méditerranéen en France ?",
+              "image": "",
+              "answer": "Au sud-est, au bord de la mer Méditerranée."
+            },
+            {
+              "question": "Comment est le climat montagnard ?",
+              "image": "",
+              "answer": "Il se remarque par un fort enneigement en hiver."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sciences",
+      "themes": [
+        {
+          "name": "1 La planète Terre",
+          "cards": [
+            {
+              "question": "Donne la définition d'un « Astéroïde ».",
+              "image": "",
+              "answer": "Astéroïde :\nPetit astre rocheux qui tourne autour du Soleil"
+            },
+            {
+              "question": "Donne la définition d'un « Astre ».",
+              "image": "",
+              "answer": "Astre :\nObjet naturel présent dans l'Univers."
+            },
+            {
+              "question": "Donne la définition d'une « Planète rocheuse ».",
+              "image": "",
+              "answer": "Planète rocheuse :\nPlanète qui possède un sol solide, fait de roches."
+            },
+            {
+              "question": "Donne la définition d'un « Satellite ».",
+              "image": "",
+              "answer": "Satellite :\nAstre qui tourne autour d'une planète."
+            },
+            {
+              "question": "Donne la définition d'une « Comète ».",
+              "image": "",
+              "answer": "Comète :\nBoule de glace et de poussières qui brille fortement en s'approchant du Soleil."
+            },
+            {
+              "question": "Donne la définition d'une « Étoile ».",
+              "image": "",
+              "answer": "Étoile :\nAstre qui produit de la chaleur et de la lumière."
+            },
+            {
+              "question": "Récite les planètes du système solaire dans l'ordre, en partant de la plus proche du Soleil.",
+              "image": "",
+              "answer": "Mercure, Vénus, Terre, Mars, Jupiter, Saturne, Uranus, Neptune"
+            },
+            {
+              "question": "Combien de planètes compte le système solaire ?",
+              "image": "",
+              "answer": "8"
+            },
+            {
+              "question": "Donne la définition d'une « Planète ».",
+              "image": "",
+              "answer": "Planète :\nAstre qui a la forme d'une boule et qui tourne autour d'une étoile."
+            },
+            {
+              "question": "Donne la définition d'une « Planète gazeuse ».",
+              "image": "",
+              "answer": "Planète gazeuse :\nPlanète formée en plus grande partie de gaz."
+            },
+            {
+              "question": "Comment s'appelle le satellite naturel qui tourne autour de la Terre ?",
+              "image": "",
+              "answer": "La Lune"
+            },
+            {
+              "question": "Lorsqu'une planète fait le tour de son étoile, on appelle ça …",
+              "image": "",
+              "answer": "… la révolution"
+            }
+          ]
+        },
+        {
+          "name": "4 Les végétaux",
+          "cards": [
+            {
+              "question": "De quoi la graine a-t-elle besoin pour germer ?",
+              "image": "",
+              "answer": "- d'eau\n- de chaleur\n- d'oxygène"
+            },
+            {
+              "question": "De quoi la graine est elle composée ?",
+              "image": "",
+              "answer": "- d'une plantule\n- d'un tégument\n- de cotylédons"
+            },
+            {
+              "question": "Comment s'appelle l'organe mâle chez les plantes ?",
+              "image": "",
+              "answer": "C'est l'étamine."
+            },
+            {
+              "question": "Comment s'appelle l'organe femelle chez les plantes ?",
+              "image": "",
+              "answer": "C'est le pistil."
+            },
+            {
+              "question": "Qu'est-ce que la plantule ?",
+              "image": "",
+              "answer": "La plantule est la future plante."
+            },
+            {
+              "question": "Que sont les cotylédons ?",
+              "image": "",
+              "answer": "Les cotylédons sont les réserves de nourriture de la graine."
+            },
+            {
+              "question": "Comment s'appelle l'étape du transport du pollen de l'étamine vers le pistil ?",
+              "image": "",
+              "answer": "C'est la pollinisation."
+            },
+            {
+              "question": "Comment s'appelle l'étape de la rencontre entre l'étamine et le pistil ?",
+              "image": "",
+              "answer": "C'est la fécondation."
+            },
+            {
+              "question": "A quoi sert le tégument ?",
+              "image": "",
+              "answer": "Le tégument protège la graine."
+            },
+            {
+              "question": "Que se passe-t-il si on arrose trop une plante ?",
+              "image": "",
+              "answer": "Elle meurt noyée ou asphyxiée"
+            },
+            {
+              "question": "Quelle est la dernière étape de la reproduction sexuée d'une plante ?",
+              "image": "",
+              "answer": "C'est la naissance d'une graine."
+            },
+            {
+              "question": "Donne une technique de reproduction asexuée de la plante.",
+              "image": "",
+              "answer": "Réponse au choix :\n- le bouturage\n- la tubérisation\n- la tige rampante"
+            }
+          ]
+        },
+        {
+          "name": "2 La pollution de l'air",
+          "cards": [
+            {
+              "question": "Donne la définition de « réchauffement climatique ».",
+              "image": "",
+              "answer": "Réchauffement climatique :\nAugmentation de la température moyenne de la Terre d'année en année."
+            },
+            {
+              "question": "Donne la définition « d'effet de serre ».",
+              "image": "",
+              "answer": "Effet de serre :\nLorsque l'air de l'atmosphère joue le même rôle que les vitres des serre de jardin qui permettent d'augmenter la température d'un endroit."
+            },
+            {
+              "question": "Donne deux exemples de combustibles polluants.",
+              "image": "",
+              "answer": "Réponses possibles :\n- pétrole\n- essence\n- fioul\n- kérosène\n- charbon"
+            },
+            {
+              "question": "Donne trois causes artificielles de la pollution de l'air.",
+              "image": "",
+              "answer": "- les transports\n- l'industrie\n- la production d'énergie\n- le chauffage\n- les pesticide"
+            },
+            {
+              "question": "Donne les deux sources principales de pollution naturelle de l'air.",
+              "image": "",
+              "answer": "- les volcans en éruption\n- les feux de forêt"
+            },
+            {
+              "question": "Quels sont les conséquences de la pollution de l'air sur les êtres vivants ?",
+              "image": "",
+              "answer": "- toux\n- infections pulmonaires\n- allergies\n- asthmes"
+            },
+            {
+              "question": "Quelles sont les deux principales conséquences de la pollution de l'air sur la planète ?",
+              "image": "",
+              "answer": "- l'effet de serre\n- le trou de la couche d'ozone"
+            },
+            {
+              "question": "Comment peut on agir sur la pollution de l'air par rapport aux transport ?",
+              "image": "",
+              "answer": "- se déplacer à pied\n- co_voiturage\n- transport en commun"
+            },
+            {
+              "question": "Comment peut on agir sur la pollution de l'air par rapport aux achats ?",
+              "image": "",
+              "answer": "- produits locaux\n- produits de saison\n- moins d'emballage"
+            },
+            {
+              "question": "Comment peut on agir sur la pollution de l'air par rapport à notre mode de vie ?",
+              "image": "",
+              "answer": "- réduire nos déchets\n- utiliser moins la climatisation et le chauffage\n- aérer nos maisons\n- cultiver des produits biologique"
+            },
+            {
+              "question": "Comment peut on agir sur la pollution de l'air par rapport aux énergies ?",
+              "image": "",
+              "answer": "- utiliser l'énergie solaire\n- utiliser l'énergie éolienne (du vent)\n- utiliser l'énergie hydraulique (de l'eau)"
+            },
+            {
+              "question": "Quels sont les risques liés à la montée du niveau de la mer ?",
+              "image": "",
+              "answer": "- inondations fréquentes\n- îles englouties\n- récoltes affectées donc famines\n- augmentation des insectes porteurs de maladies"
+            }
+          ]
+        },
+        {
+          "name": "3 Le cycle de l'eau",
+          "cards": [
+            {
+              "question": "Qu'est-ce que la fusion ?",
+              "image": "",
+              "answer": "C'est le passage de l'eau de l'état solide à l'état liquide."
+            },
+            {
+              "question": "Qu'est-ce que la vaporisation.",
+              "image": "",
+              "answer": "C'est le passage de l'eau de l'état liquide à l'état gazeux."
+            },
+            {
+              "question": "Au dessus de quelle température, l'eau se trouve-t-elle à l'état liquide ?",
+              "image": "",
+              "answer": "0°C"
+            },
+            {
+              "question": "Que se passe-t-il lorsque l'eau de pluie ou de ruissellement s'infiltre puis rencontre une roche perméable ?",
+              "image": "",
+              "answer": "Elle forme une nappe phréatique."
+            },
+            {
+              "question": "Qu'est-ce que la solidification ?",
+              "image": "",
+              "answer": "C'est le passage de l'eau de l'état liquide à l'état solide."
+            },
+            {
+              "question": "Qu'est-ce que la condensation.",
+              "image": "",
+              "answer": "C'est le passage de l'eau de l'état gazeux à l'état liquide."
+            },
+            {
+              "question": "Donne la définition de perméable.",
+              "image": "",
+              "answer": "Se dit d'une matière qui laisse passer l'eau."
+            },
+            {
+              "question": "Donne un exemple de matière imperméable.",
+              "image": "",
+              "answer": "l'argile"
+            },
+            {
+              "question": "A partir de quelle température, l'eau commence-t-elle à s'évaporer ?",
+              "image": "",
+              "answer": "100°C"
+            },
+            {
+              "question": "Quelles sont les deux conditions pour qu'il y ait des précipitations.",
+              "image": "",
+              "answer": "- nuage chargé en eau\n- rencontre du froid (vent par exemple)"
+            },
+            {
+              "question": "Explique le ruissellement ?",
+              "image": "",
+              "answer": "L'eau qui ne s'est pas infiltrée se transforme en cours d'eau et rejoint la mer."
+            },
+            {
+              "question": "Explique l'infiltration.",
+              "image": "",
+              "answer": "L'eau des précipitations rencontre des roches perméables et passe dans les sols."
+            }
+          ]
+        },
+        {
+          "name": "La matière",
+          "cards": [
+            {
+              "question": "Donne la définition d'un « Alliage ».",
+              "image": "",
+              "answer": "Alliage :\nCombinaison d'un métal avec un ou plusieurs autres éléments."
+            },
+            {
+              "question": "Donne la définition de « Matériau ».",
+              "image": "",
+              "answer": "Matériau :\nMatière d'origine naturelle ou artificielle que l'Homme travaille pour fabriquer des objets."
+            },
+            {
+              "question": "Donne la définition d'un « Matériau composite ».",
+              "image": "",
+              "answer": "Matériaux composite :\nMatériau composé de plusieurs composants"
+            },
+            {
+              "question": "Donne la définition de « Matière ».",
+              "image": "",
+              "answer": "Matière :\nCe qui forme l'ensemble des objets et des êtres vivants que l'on peut toucher ou peser, c'est à dire tout ce qui a une masse."
+            }
+          ]
+        },
+        {
+          "name": "Les aliments",
+          "cards": [
+            {
+              "question": "Donne la définition d'un « Aliment ».",
+              "image": "",
+              "answer": "Aliment :\nCe qui nourrit et permet à notre corps de fonctionner et de se développer."
+            },
+            {
+              "question": "Donne la définitions des « Besoins énergétiques »",
+              "image": "",
+              "answer": "Besoins énergétiques :\nÉnergie nécessaire pour permettre au corps de se construire et de fonctionner correctement."
+            },
+            {
+              "question": "Donne la définition de « Calories ».",
+              "image": "",
+              "answer": "Calories :\nUnité qui sert à mesurer l'énergie contenue dans notre alimentation."
+            }
+          ]
+        },
+        {
+          "name": "La rotation de la Terre",
+          "cards": [
+            {
+              "question": "Donne la définition de « Axe de rotation de la Terre ».",
+              "image": "",
+              "answer": "Axe de rotation de la Terre :\nLigne droite imaginaire qui passe par les pôles Nord et Sud et le centre de la Terre. La Terre tourne sur elle-même autour de cet axe."
+            },
+            {
+              "question": "Donne la définition des « Points cardinaux ».",
+              "image": "",
+              "answer": "Points cardinaux :\nLes quatre points cardinaux indiqués par une boussole sont le Nord, le Sud, l'Est et l'Ouest."
+            },
+            {
+              "question": "Donne la définition du « Sens de rotation ».",
+              "image": "",
+              "answer": "Sens de rotation :\nLa Terre tourne sur elle même d'Ouest en Est, dans le sens inverse des aiguilles d'une montre."
+            },
+            {
+              "question": "Donne la définition de « Trajectoire du Soleil ».",
+              "image": "",
+              "answer": "Trajectoire du Soleil :\nLigne imaginaire sur laquelle le Soleil se déplace."
+            },
+            {
+              "question": "Combien de temps met la Terre pour faire sa rotation ?",
+              "image": "",
+              "answer": "24 heures\n(= 1 jour)"
+            },
+            {
+              "question": "Comment appelle-t-on l'impression que le Soleil se déplace dans le ciel ?",
+              "image": "",
+              "answer": "Le mouvement apparent du Soleil."
+            },
+            {
+              "question": "Quel outils, indiquant les points cardinaux, permet de repérer la trajectoire du Soleil dans le ciel ?",
+              "image": "",
+              "answer": "La boussole."
+            },
+            {
+              "question": "Cite l'un des scientifiques qui ont démontré que le Soleil ne tourne pas autour de la Terre ?",
+              "image": "",
+              "answer": "Nicolas COPERNIC\nGALILEE"
+            },
+            {
+              "question": "Quel type de ligne forme la trajectoire du Soleil dans le ciel ?",
+              "image": "",
+              "answer": "Une courbe."
+            },
+            {
+              "question": "Pourquoi a-t-on de la lumière dans la journée ?",
+              "image": "",
+              "answer": "Car l'endroit où l'on se trouve est orienté face au Soleil."
+            },
+            {
+              "question": "Lorsqu'une planète fait un tour sur elle-même, on appelle ça …",
+              "image": "",
+              "answer": "… la rotation"
+            },
+            {
+              "question": "Lorsqu'une planète fait le tour de son étoile, on appelle ça …",
+              "image": "",
+              "answer": "… la révolution"
+            }
+          ]
+        },
+        {
+          "name": "La révolution de la Terre",
+          "cards": [
+            {
+              "question": "Qu'est-ce qui produit le phénomène des saisons ?",
+              "image": "",
+              "answer": "L'inclinaison de l'axe de rotation de la Terre et la révolution de la Terre autour du Soleil."
+            },
+            {
+              "question": "Quelle est la particularité de l'axe de rotation de la Terre ?",
+              "image": "",
+              "answer": "Il es incliné."
+            },
+            {
+              "question": "Combien y a-t-il de saison dans les zones de climat tempéré (comme la France) ?",
+              "image": "",
+              "answer": "4 saisons"
+            },
+            {
+              "question": "Qu'est-ce que la « révolution » de la Terre ?",
+              "image": "",
+              "answer": "C'est la Terre qui fait le tour du Soleil en 1 an = 365 jours."
+            },
+            {
+              "question": "Comment nomme-t-on la ligne imaginaire qui passe par le pôle nord et le pôle sud et autour duquel tourne la Terre ?",
+              "image": "",
+              "answer": "L'axe de rotation de la Terre"
+            },
+            {
+              "question": "Comment s'appelle la ligne imaginaire qui sépare l'hémisphère nord de l'hémisphère sud ?",
+              "image": "",
+              "answer": "L'équateur"
+            },
+            {
+              "question": "En hiver quelle est la durée de la nuit au pôle nord ?",
+              "image": "",
+              "answer": "6 mois"
+            },
+            {
+              "question": "Donne la définition de « solstice ».",
+              "image": "",
+              "answer": "Jour de l'année dans l'hémisphère nord ou la journée est la plus longue (solstice d'été) ou la plus courte (solstice d'hiver)."
+            },
+            {
+              "question": "Donne la définition « d'hémisphère ».",
+              "image": "",
+              "answer": "Les hémisphères sont les deux moitiés (demie sphère) de la Terre au nord et au sud de l'équateur."
+            },
+            {
+              "question": "Dans l'hémisphère nord, à quelle saison a lieu le solstice où la nuit dure 8 heures et le jour 16 heures ?",
+              "image": "",
+              "answer": "En été"
+            },
+            {
+              "question": "Donne la définition de « saisons ».",
+              "image": "",
+              "answer": "Période au court de laquelle la température et le climat sont relativement stable dans une région donnée."
+            },
+            {
+              "question": "Donne la définition « d'équinoxe ».",
+              "image": "",
+              "answer": "Les deux jours de l'année où la journée et la nuit ont la même durée partout sur la Terre : 12 heures."
+            }
+          ]
+        },
+        {
+          "name": "Volcanset séismes",
+          "cards": [
+            {
+              "question": "Quel est l'autre nom des volcans effusifs ?",
+              "image": "",
+              "answer": "Volcans rouges"
+            },
+            {
+              "question": "Comment appelle-t-on la vague de très grande taille provoquée lorsque l'épicentre d'un séisme est dans l'océan ?",
+              "image": "",
+              "answer": "un tsunami"
+            },
+            {
+              "question": "Quel sont les deux types de volcans ?",
+              "image": "",
+              "answer": "- effusif\n- explosif"
+            },
+            {
+              "question": "Donne la définition de « lave »",
+              "image": "",
+              "answer": "Roche fondue produite par un volcan."
+            },
+            {
+              "question": "Quel est l'autre nom des volcans explosifs ?",
+              "image": "",
+              "answer": "Volcans gris"
+            },
+            {
+              "question": "Quel doit être ton premier réflexe si il y a un séisme alors que tu es à l'école ?",
+              "image": "",
+              "answer": "Se réfugier sous une table."
+            },
+            {
+              "question": "Que se passe-t-il si un séisme atteint une magnitude de 9 sur l'échelle de Richter ?",
+              "image": "",
+              "answer": "Il dévaste des zones de plusieurs milliers de km."
+            },
+            {
+              "question": "Donne la définition de « foyer »",
+              "image": "",
+              "answer": "Endroit de la croûte terrestre où s'est produite la cassure."
+            },
+            {
+              "question": "Quel est le nom de l'appareil qui enregistre et mesure les vibrations du sol lors d'un séisme ?",
+              "image": "",
+              "answer": "Le sismographe"
+            },
+            {
+              "question": "Donne la définition « d'épicentre »",
+              "image": "",
+              "answer": "Zone à la surface de la Terre à la verticale du foyer."
+            },
+            {
+              "question": "Où s'accumule le magma avant une éruption volcanique ?",
+              "image": "",
+              "answer": "Dans la chambre magmatique ( ou le réservoir magmatique)"
+            },
+            {
+              "question": "Cite deux des parties qui composent la Terre.",
+              "image": "",
+              "answer": "- noyau solide\n- noyau liquide\n- manteau\n- croûte terrestre"
+            }
+          ]
+        },
+        {
+          "name": "L'électricité",
+          "cards": [
+            {
+              "question": "De quoi a-t-on besoin au minimum pour que la lampe s'allume ?",
+              "image": "",
+              "answer": "une pile"
+            },
+            {
+              "question": "Combien de bornes y a-t-il sur une pile.",
+              "image": "",
+              "answer": "une borne"
+            },
+            {
+              "question": "Cite deux matériaux isolants.",
+              "image": "",
+              "answer": "- bois\n- papier\n- plastique\n- verre\n- tissu"
+            },
+            {
+              "question": "Vrai ou faux\nLe courant circule lorsque le circuit est ouvert.",
+              "image": "",
+              "answer": "VRAI"
+            },
+            {
+              "question": "Pourquoi faut-il mettre du plastique autour des fils électriques ?",
+              "image": "",
+              "answer": "Pour isoler le courant"
+            },
+            {
+              "question": "Vrai ou faux\nL'ampoule s'allume quand les deux bornes touchent le culot.",
+              "image": "",
+              "answer": "FAUX"
+            },
+            {
+              "question": "Cite deux matériaux conducteurs.",
+              "image": "",
+              "answer": "- acier\n- argent\n- or\n- bronze\n- fer\n- métal"
+            },
+            {
+              "question": "Vrai ou faux\nL'ampoule s'allume quand les bornes touchent le culot et le plot central.",
+              "image": "",
+              "answer": "FAUX"
+            },
+            {
+              "question": "Sur quelles parties de la lampe doit-on brancher les fils électriques ?",
+              "image": "",
+              "answer": "Sur le plot et le culot."
+            },
+            {
+              "question": "Vrai ou faux\nL'ampoule peut s'allumer sans pile ?",
+              "image": "",
+              "answer": "FAUX"
+            },
+            {
+              "question": "Vrai ou faux\nLe courant circule lorsque le circuit est ouvert.",
+              "image": "",
+              "answer": "FAUX"
+            }
+          ]
+        },
+        {
+          "name": "Les mouvements du corps humain",
+          "cards": [
+            {
+              "question": "Quel est l'os qui protège le cerveau ?",
+              "image": "",
+              "answer": "Le crâne"
+            },
+            {
+              "question": "Comment s'appelle l'articulation entre la main et le bras ?",
+              "image": "",
+              "answer": "Le poignet"
+            },
+            {
+              "question": "Cite les deux articulations qui ne bougent que dans deux directions.",
+              "image": "",
+              "answer": "- les coudes\n- les genoux"
+            },
+            {
+              "question": "Qu'est-ce qui permet aux os de de ne pas frotter dans l'articulation ?",
+              "image": "",
+              "answer": "le liquide huileux (synovie)"
+            },
+            {
+              "question": "Combien d'os compte le squelette ?",
+              "image": "",
+              "answer": "206"
+            },
+            {
+              "question": "Avec quoi les muscles sont-ils attachés aux os ?",
+              "image": "",
+              "answer": "Les tendons"
+            },
+            {
+              "question": "Cite quatre articulations qui bougent dans tous les sens.",
+              "image": "",
+              "answer": "- le cou\n- les hanches\n- les épaules\n- les poignets\n- les chevilles"
+            },
+            {
+              "question": "Comment appelle-t-on les os des doigts ?",
+              "image": "",
+              "answer": "les phalanges"
+            },
+            {
+              "question": "Comment s'appelle le lien entre les os dans l'articulation ?",
+              "image": "",
+              "answer": "Les ligaments"
+            },
+            {
+              "question": "Comment appelle-t-on une cassure d'os ?",
+              "image": "",
+              "answer": "une fracture"
+            },
+            {
+              "question": "Nomme les muscles du haut du bras.",
+              "image": "",
+              "answer": "- biceps\n- triceps"
+            }
+          ]
+        },
+        {
+          "name": "Cap sur l'Eau !",
+          "cards": [
+            {
+              "question": "Avec quelle eau faut-il rincer une piqûre de méduse ?",
+              "image": "",
+              "answer": "Avec de l'eau de mer."
+            },
+            {
+              "question": "Comment s'appelle le petit bateau-école utilisé par un enfant seul pour apprendre la voile ?",
+              "image": "",
+              "answer": "L'Optimist."
+            },
+            {
+              "question": "Combien de personnes peuvent monter à bord d'un Écho 90 ?",
+              "image": "",
+              "answer": "Jusqu'à 12 personnes."
+            },
+            {
+              "question": "Cite deux îles de l'archipel de Riou.",
+              "image": "",
+              "answer": "-Riou\n- Maïre\n- Jarre\n- Plane"
+            },
+            {
+              "question": "Pourquoi la victoire de Florence Arthaud à la Route du Rhum est-elle historique ?",
+              "image": "",
+              "answer": "Parce qu'elle a été la première femme à gagner cette transatlantique en solitaire."
+            },
+            {
+              "question": "Cite deux types de récifs artificiels.",
+              "image": "",
+              "answer": "- le récif chicane\n- le récif filaire\n- le panier acier\n- le récif fakir\n- l'amas de roche\n- l'amas de cubes"
+            },
+            {
+              "question": "Que faut-il faire si la zone touchée est très étendue ou si la personne respire mal après une piqûre de méduse ?",
+              "image": "",
+              "answer": "Consulter rapidement un service de secours ou d'urgence."
+            },
+            {
+              "question": "Quelle grande course Florence Arthaud a-t-elle remportée en 1990 ?",
+              "image": "",
+              "answer": "La Route du Rhum."
+            },
+            {
+              "question": "Comment s'appelle le fruit de la posidonie ?",
+              "image": "",
+              "answer": "L'olive de mer."
+            },
+            {
+              "question": "Quel est le nom scientifique de la posidonie ?",
+              "image": "",
+              "answer": "Posidonia oceanica."
+            },
+            {
+              "question": "Cite une partie de la posidonie.",
+              "image": "",
+              "answer": "Les feuilles, les racines ou le rhizome."
+            },
+            {
+              "question": "Comment s'appelle la partie horizontale de la posidonie ?",
+              "image": "",
+              "answer": "Le rhizome plagiotrope."
+            },
+            {
+              "question": "Combien y a-t-il d'îles dans l'archipel du Frioul ?",
+              "image": "",
+              "answer": "Quatre îles."
+            },
+            {
+              "question": "À quoi sert un récif artificiel dans la mer ?",
+              "image": "",
+              "answer": "À créer un habitat et un refuge pour les poissons."
+            },
+            {
+              "question": "Pourquoi faut-il prévoir des vêtements chauds pour aller en mer ?",
+              "image": "",
+              "answer": "Parce qu'il fait toujours plus froid en mer."
+            },
+            {
+              "question": "Combien de bras a un poulpe ?",
+              "image": "",
+              "answer": "Huit bras."
+            },
+            {
+              "question": "Comment s'appelle le plus grand cétacé présenté dans les documents sur la Méditerranée ?",
+              "image": "",
+              "answer": "Le rorqual commun."
+            },
+            {
+              "question": "Quelle longueur peut atteindre le rorqual commun ?",
+              "image": "",
+              "answer": "22 mètres."
+            },
+            {
+              "question": "Comment s'appelle le sanctuaire marin réservé aux grands mammifères marins en Méditerranée ?",
+              "image": "",
+              "answer": "Pelagos."
+            },
+            {
+              "question": "Quelles sont trois villes qui font partie du sanctuaire Pelagos ?",
+              "image": "",
+              "answer": "Monaco, Gênes et Bastia."
+            },
+            {
+              "question": "Quel gaz la posidonie absorbe-t-elle et stocke-t-elle ?",
+              "image": "",
+              "answer": "Le dioxyde de carbone, ou CO2."
+            },
+            {
+              "question": "Que produit la posidonie dans l'eau ?",
+              "image": "",
+              "answer": "De l'oxygène."
+            },
+            {
+              "question": "À quoi servent les herbiers de posidonie pour les œufs de certains animaux marins ?",
+              "image": "",
+              "answer": "À les cacher à l'abri des courants."
+            },
+            {
+              "question": "Quel rôle la posidonie joue-t-elle pour les fonds marins ?",
+              "image": "",
+              "answer": "Elle stabilise les fonds marins."
+            },
+            {
+              "question": "Comment surnomme-t-on la saupe, ce poisson qui broute la posidonie ?",
+              "image": "",
+              "answer": "La vache de mer."
+            },
+            {
+              "question": "Comment s'appelle la plante sous-marine de Méditerranée qui produit de l'oxygène ?",
+              "image": "",
+              "answer": "La posidonie."
+            },
+            {
+              "question": "Qui était Florence Arthaud ?",
+              "image": "",
+              "answer": "Une navigatrice."
+            },
+            {
+              "question": "Quel était le surnom de Florence Arthaud ?",
+              "image": "",
+              "answer": "La petite fiancée de l'Atlantique."
+            },
+            {
+              "question": "Quels sont les trois types de nageoires d'un cétacé ?",
+              "image": "",
+              "answer": "La dorsale, la caudale et la pectorale."
+            },
+            {
+              "question": "Comment appelle-t-on aussi l'ormeau ?",
+              "image": "",
+              "answer": "L'oreille de mer."
+            },
+            {
+              "question": "À quoi sert un récif artificiel ?",
+              "image": "",
+              "answer": "À abriter et protéger la vie marine."
+            },
+            {
+              "question": "Comment s'appelle l'archipel proche de Marseille qui comprend Riou, Maïre, Jarre et Plane ?",
+              "image": "",
+              "answer": "L'archipel de Riou."
+            },
+            {
+              "question": "Quel oiseau marin a un cri qui ressemble à des pleurs de bébé ?",
+              "image": "",
+              "answer": "Le puffin cendré."
+            },
+            {
+              "question": "Cite deux îles de l'archipel du Frioul.",
+              "image": "",
+              "answer": "- Pomègues\n- Ratonneau\n- l'île d'If\n- Tiboulen"
+            },
+            {
+              "question": "Cite un objet que l'on peut trouver dans la laisse de mer.",
+              "image": "",
+              "answer": "Par exemple une éponge, une gibbule, une patelle, un test d'oursin ou un os de seiche."
+            },
+            {
+              "question": "Comment appelle-t-on aussi la patelle ?",
+              "image": "",
+              "answer": "L'arapède."
+            }
+          ]
+        },
+        {
+          "name": "Rivières médit.",
+          "cards": [
+            {
+              "question": "Quel climat caractérise les régions méditerranéennes en hiver ?",
+              "image": "",
+              "answer": "Des hivers doux et humides."
+            },
+            {
+              "question": "Quel climat caractérise les régions méditerranéennes en été ?",
+              "image": "",
+              "answer": "Des étés chauds et secs."
+            },
+            {
+              "question": "Que provoquent souvent les pluies d’automne en ville ?",
+              "image": "",
+              "answer": "Des crues rapides."
+            },
+            {
+              "question": "Qu’est-ce qu’un bassin versant ?",
+              "image": "",
+              "answer": "Territoire où toutes les eaux de pluie s’écoulent vers la même rivière."
+            },
+            {
+              "question": "À quoi sert la neige des Alpes du Sud ?",
+              "image": "",
+              "answer": "Elle sert de réserve d’eau pour l’été."
+            },
+            {
+              "question": "Pourquoi l’imperméabilisation des sols aggrave-t-elle les crues ?",
+              "image": "",
+              "answer": "L’eau ruisselle plus vite sur les routes et parkings et rejoint rapidement la rivière."
+            },
+            {
+              "question": "Qu’est-ce qu’une zone refuge ?",
+              "image": "",
+              "answer": "Endroit où des espèces peuvent survivre pendant une période difficile, comme un trou d’eau ou une zone ombragée."
+            },
+            {
+              "question": "Qu’est-ce qu’un torrent ?",
+              "image": "",
+              "answer": "Cours d’eau de montagne à forte pente et au courant rapide."
+            },
+            {
+              "question": "Qu’est-ce que la ripisylve ?",
+              "image": "",
+              "answer": "Végétation des bords de rivière qui protège les berges, apporte de l’ombre et sert d’abri."
+            },
+            {
+              "question": "Qu’est-ce que le lit majeur ?",
+              "image": "",
+              "answer": "Zone inondable lors des grandes crues."
+            },
+            {
+              "question": "Qu’est-ce qu’une embouchure ?",
+              "image": "",
+              "answer": "Endroit où la rivière se jette dans la mer ou dans un autre cours d’eau."
+            },
+            {
+              "question": "Qu’est-ce qu’un débit réservé ?",
+              "image": "",
+              "answer": "Débit minimal rendu à la rivière à l’aval d’un barrage."
+            },
+            {
+              "question": "Qu’est-ce qu’un sédiment ?",
+              "image": "",
+              "answer": "Petit matériau, comme le sable, les graviers ou les limons, transporté et déposé par l’eau."
+            },
+            {
+              "question": "Qu’est-ce qu’une frayère ?",
+              "image": "",
+              "answer": "Zone où les poissons pondent leurs œufs."
+            },
+            {
+              "question": "Comment appelle-t-on la variation de la quantité d’eau dans une rivière au fil de l’année ?",
+              "image": "",
+              "answer": "Le régime hydrologique."
+            },
+            {
+              "question": "De quoi dépend surtout le régime hydrologique d’une rivière ?",
+              "image": "",
+              "answer": "Du climat, du relief, de la géologie et des aménagements humains."
+            },
+            {
+              "question": "Quand le débit est-il maximal dans un régime nival ?",
+              "image": "",
+              "answer": "Au printemps, lors de la fonte des neiges."
+            },
+            {
+              "question": "Que signifie « étiage sévère » ?",
+              "image": "",
+              "answer": "Période de très basses eaux, parfois avec assèchement."
+            },
+            {
+              "question": "Les crues d’automne peuvent-elles modifier le cours d’eau ?",
+              "image": "",
+              "answer": "Oui, elles peuvent déplacer des sédiments et modifier le lit de la rivière."
+            },
+            {
+              "question": "Où les truites pondent-elles en hiver ?",
+              "image": "",
+              "answer": "Dans des zones peu profondes avec des cailloux ou des graviers."
+            },
+            {
+              "question": "Qu’est-ce qu’une ligne de partage des eaux ?",
+              "image": "",
+              "answer": "Ligne imaginaire reliant les crêtes et séparant deux bassins versants."
+            },
+            {
+              "question": "À quoi sert l’oxygène dissous dans l’eau ?",
+              "image": "",
+              "answer": "Il permet la respiration des êtres vivants aquatiques."
+            },
+            {
+              "question": "Dans quelle eau l’oxygène se dissout-il le mieux ?",
+              "image": "",
+              "answer": "Dans une eau froide."
+            },
+            {
+              "question": "Comment est souvent l’eau dans les torrents de montagne ?",
+              "image": "",
+              "answer": "Froide, bien oxygénée, avec un courant rapide."
+            },
+            {
+              "question": "Qu’est-ce qu’un embâcle ?",
+              "image": "",
+              "answer": "Accumulation de troncs, branches ou feuilles qui peut bloquer l’écoulement."
+            },
+            {
+              "question": "Qu’est-ce qu’une civelle ?",
+              "image": "",
+              "answer": "Une jeune anguille qui remonte les cours d’eau."
+            },
+            {
+              "question": "Qu’est-ce qu’un lâcher d’eau ?",
+              "image": "",
+              "answer": "Arrivée soudaine d’eau relâchée par un barrage, qui modifie artificiellement le débit."
+            },
+            {
+              "question": "Qu’est-ce qu’une nappe alluviale ?",
+              "image": "",
+              "answer": "Eau souterraine stockée dans les sables et graviers proches de la rivière."
+            },
+            {
+              "question": "Que trouve-t-on souvent dans le cours inférieur près de la mer ?",
+              "image": "",
+              "answer": "Des méandres, une eau plus trouble et un fond vaseux."
+            },
+            {
+              "question": "Qu’est-ce qu’un méandre ?",
+              "image": "",
+              "answer": "Grande courbe formée par une rivière qui serpente."
+            },
+            {
+              "question": "Qu’est-ce qu’une espèce envahissante ?",
+              "image": "",
+              "answer": "Espèce venue d’ailleurs qui se multiplie beaucoup et perturbe le milieu."
+            },
+            {
+              "question": "Qu’est-ce que le biseau salé ?",
+              "image": "",
+              "answer": "Remontée d’eau salée de la mer vers les terres lorsque l’eau douce manque."
+            },
+            {
+              "question": "Quel effet peuvent avoir les pompages intensifs en été ?",
+              "image": "",
+              "answer": "Ils peuvent faire baisser le niveau de la rivière et de la nappe alluviale."
+            },
+            {
+              "question": "Qu’est-ce qu’une passe à poissons ?",
+              "image": "",
+              "answer": "Aménagement qui aide les poissons à franchir un barrage ou un obstacle."
+            },
+            {
+              "question": "À quoi peut servir un barrage ?",
+              "image": "",
+              "answer": "À produire de l’électricité, stocker de l’eau, alimenter les villes, irriguer ou permettre des loisirs."
+            },
+            {
+              "question": "Pourquoi la ripisylve est-elle utile à la rivière ?",
+              "image": "",
+              "answer": "Elle apporte de l’ombre, limite l’érosion, sert d’abri et fournit de la nourriture."
+            },
+            {
+              "question": "Comment les engrais et pesticides peuvent-ils rejoindre la rivière ?",
+              "image": "",
+              "answer": "Par ruissellement ou par infiltration dans les sols."
+            },
+            {
+              "question": "En été, pourquoi les rivières méditerranéennes sont-elles fragiles ?",
+              "image": "",
+              "answer": "Les pluies sont rares, l’eau chauffe, le niveau baisse et l’oxygène dissous diminue."
+            },
+            {
+              "question": "Qu’est-ce qu’une espèce polluo-sensible ?",
+              "image": "",
+              "answer": "Espèce qui vit surtout dans une eau de bonne qualité et supporte mal la pollution."
+            },
+            {
+              "question": "Qu’est-ce qu’une espèce polluo-tolérante ?",
+              "image": "",
+              "answer": "Espèce qui supporte assez bien une eau dégradée."
+            },
+            {
+              "question": "Qu’est-ce que l’autoépuration naturelle ?",
+              "image": "",
+              "answer": "Capacité d’un cours d’eau à retrouver peu à peu une meilleure qualité grâce aux êtres vivants et à des phénomènes naturels."
+            },
+            {
+              "question": "Qu’est-ce que l’eutrophisation ?",
+              "image": "",
+              "answer": "Développement excessif d’algues ou de plantes aquatiques qui déséquilibre la rivière."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "English",
+      "themes": [
+        {
+          "name": "Follow the line 1",
+          "cards": [
+            {
+              "question": "What's the weather like today ?",
+              "image": "",
+              "answer": "Today it is (+weather)\nExemple :\nToday it is sunny."
+            },
+            {
+              "question": "What colour is it ?",
+              "image": "",
+              "answer": "It is (+ colour)\nExemple :\nIt is pink and white."
+            },
+            {
+              "question": "What's your favourite colour ?",
+              "image": "",
+              "answer": "My favourite colour is (+colour)\nExemple :\nMy favourite color is blue."
+            },
+            {
+              "question": "What's the date today ?",
+              "image": "",
+              "answer": "Today is (+ date)\nExemple :\nToday is Monday, September, the 1st (first)"
+            },
+            {
+              "question": "What was the day yesterday ?",
+              "image": "",
+              "answer": "Yesterday was (+day).\nExemple :\nYesterday was Friday."
+            },
+            {
+              "question": "What will be the day tomorrow ?",
+              "image": "",
+              "answer": "Tomorrow willbe (+day)\nExemple : Tomorrow will be Thursday."
+            },
+            {
+              "question": "How many days in school ?",
+              "image": "",
+              "answer": "There are (+ nombre) days in school.\nExemple : There are twenty-six days in school."
+            },
+            {
+              "question": "How old are you ?",
+              "image": "",
+              "answer": "I am ten.\nI am ten years old."
+            },
+            {
+              "question": "Is it green ?",
+              "image": "",
+              "answer": "Yes, it is.\nNo, it is not."
+            },
+            {
+              "question": "What's your name ?",
+              "image": "",
+              "answer": "My name is..."
+            },
+            {
+              "question": "Have you got a blue pen ?",
+              "image": "",
+              "answer": "Yes, I have.\nNo, I have not."
+            },
+            {
+              "question": "Do you like yellow ?",
+              "image": "",
+              "answer": "Yes, I do.\nNo, I do not."
+            }
+          ]
+        },
+        {
+          "name": "Follow the line 2",
+          "cards": [
+            {
+              "question": "How are you ?",
+              "image": "",
+              "answer": "I am (+ feeling)\nExemple :\nI am fine and hungry."
+            },
+            {
+              "question": "What is your phone number ?",
+              "image": "",
+              "answer": "My phone number is (+ numbers)"
+            },
+            {
+              "question": "Can you spell your shcool name ?",
+              "image": "",
+              "answer": "My school is L-A B-A-U-M-E"
+            },
+            {
+              "question": "Can you spell your name ?",
+              "image": "",
+              "answer": "My name is (+SPELLING)"
+            },
+            {
+              "question": "What season is it ?",
+              "image": "",
+              "answer": "The season is (+ season)\nExemple :\nThe season is summer."
+            },
+            {
+              "question": "What is it ?",
+              "image": "",
+              "answer": "It is (+object)\nExemple : It is a blue notebook."
+            },
+            {
+              "question": "How many absents today ?",
+              "image": "",
+              "answer": "Today there are no absents.\nToday there is one absent.\nToday there are four absents."
+            },
+            {
+              "question": "Are you fine ?",
+              "image": "",
+              "answer": "Yes, I am.\nNo, I am not."
+            },
+            {
+              "question": "How many pencils are there ?",
+              "image": "",
+              "answer": "There is one pencil.\nThere are two pencils."
+            },
+            {
+              "question": "Is she/he surprised ?",
+              "image": "",
+              "answer": "Yes, (s)he is.\nNo, (s)he is not."
+            },
+            {
+              "question": "Who are you ?",
+              "image": "",
+              "answer": "I am ….\n(Exemple : I am a boy.)"
+            },
+            {
+              "question": "Are you a …. ?\nExemple : Are you a girl ?",
+              "image": "",
+              "answer": "Yes, I am.\nNo, I am not."
+            }
+          ]
+        },
+        {
+          "name": "Civilisation 1",
+          "cards": [
+            {
+              "question": "Combien de temps dure l'école primaire en Grande-Bretagne ?",
+              "image": "",
+              "answer": "7 ans"
+            },
+            {
+              "question": "Quelle est l'écriture utilisée par les élèves en Grande-Bretagne ?",
+              "image": "",
+              "answer": "le script"
+            },
+            {
+              "question": "A quelle heure les cours se termine-t-il pour les élèves de primaire en Grande-Bretagne ?",
+              "image": "",
+              "answer": "A 15h30"
+            },
+            {
+              "question": "Que font les élèves de primaire après les cours en Grande-Bretagne.",
+              "image": "",
+              "answer": "Ils restent à l'école pour faire des activités dans des clubs."
+            },
+            {
+              "question": "Qu'est-ce que l'Assembly dans les écoles britanniques ?",
+              "image": "",
+              "answer": "En début de journée, toutes les classes se réunissent pour faire un spectacle, chanter, donner des informations."
+            },
+            {
+              "question": "Comment appelle-t-on la dame qui aide les enfants à traverser ?",
+              "image": "",
+              "answer": "A Lollipop Lady"
+            }
+          ]
+        },
+        {
+          "name": "C2",
+          "cards": [
+            {
+              "question": "Comment se nomme le jeu Halloween qui consiste à attraper des pommes avec sa bouche ?",
+              "image": "",
+              "answer": "Apple on strings"
+            },
+            {
+              "question": "A quelle date est célébré Halloween ?",
+              "image": "",
+              "answer": "le 31 octobre"
+            },
+            {
+              "question": "De quel peuple de l'Antiquité la fête Halloween est elle inspirée ?",
+              "image": "",
+              "answer": "des Celtes"
+            },
+            {
+              "question": "Le mot « Halloween » vient de « All Hallows Eve ». Qu'est-ce que ça signifie ?",
+              "image": "",
+              "answer": "la veille de la Toussaint"
+            },
+            {
+              "question": "Avant la citrouille, quel légume servait à fabriquer les lanternes d'Halloween ?",
+              "image": "",
+              "answer": "le navet"
+            },
+            {
+              "question": "Quelle est la formule à utiliser à Halloween pour obtenir des friandises ?",
+              "image": "",
+              "answer": "Trick or treat"
+            }
+          ]
+        },
+        {
+          "name": "C3",
+          "cards": [
+            {
+              "question": "A quelle date est célébré « Bonfire Night » ?",
+              "image": "",
+              "answer": "le 5 novembre"
+            },
+            {
+              "question": "Pourquoi Guy Fawkes n'a-t-il pas réussi à renverser le roi James Ier ?",
+              "image": "",
+              "answer": "Car il a été trahi par l'un de ses complices."
+            },
+            {
+              "question": "De quel pays est originaire la tradition « Bonfire night » ?",
+              "image": "",
+              "answer": "Angleterre"
+            },
+            {
+              "question": "Quelle est la tradition le soir de « Bonfire Night » ?",
+              "image": "",
+              "answer": "de brûler une marionnette à effigie de Guy Fawkes dans un grand feu de joie et de tirer des feux d'artifices"
+            },
+            {
+              "question": "Comment se nomme le traite dont ont célèbre la défaite à « Bonfire night » ?",
+              "image": "",
+              "answer": "Guy Fawkes"
+            },
+            {
+              "question": "En 1605, que voulaient faire exploser les conspirateurs de Guy Fawkes ?",
+              "image": "",
+              "answer": "Le Parlement de Westminster"
+            }
+          ]
+        },
+        {
+          "name": "C4",
+          "cards": [
+            {
+              "question": "Quelle est la capitale de l’Écosse ?",
+              "image": "",
+              "answer": "Edinbourg"
+            },
+            {
+              "question": "Comment se nomme la jupe traditionnelle des Écossais ?",
+              "image": "",
+              "answer": "le kilt"
+            },
+            {
+              "question": "Quelle est la légende du lac du Loch Ness ?",
+              "image": "",
+              "answer": "Un monstre préhistorique vivrait dans ce lac."
+            },
+            {
+              "question": "Dans quel pays se trouve le lac du Loch Ness ?",
+              "image": "",
+              "answer": "En Écosse."
+            },
+            {
+              "question": "Quel est l'instrument traditionnel écossais ?",
+              "image": "",
+              "answer": "bagpipes\n(la cornemuse)"
+            },
+            {
+              "question": "Comment s'appelle la résidence d'été (qui se trouve en Écosse) de la famille royale britannique ?",
+              "image": "",
+              "answer": "Balmoral Castle"
+            }
+          ]
+        },
+        {
+          "name": "C6",
+          "cards": [
+            {
+              "question": "Quelle est la capitale du Royaume-Uni (et de l'Angleterre) ?",
+              "image": "",
+              "answer": "Londres"
+            },
+            {
+              "question": "Quels sont les pays qui constituent le Royaume Uni ?",
+              "image": "",
+              "answer": "L'Angleterre, l’Écosse, le Pays de Gales et l'Irlande du Nord"
+            },
+            {
+              "question": "Combien y a-t-il d'habitants au Royaume Uni ?",
+              "image": "",
+              "answer": "63 millions"
+            },
+            {
+              "question": "Quelle est la capitale du Pays de Gales ?",
+              "image": "",
+              "answer": "Cardiff"
+            },
+            {
+              "question": "Comment s'appelle le drapeau du Royaume-Uni ? Quelles sont ces couleurs ?",
+              "image": "",
+              "answer": "l'Union Jack\nBleu, blanc et rouge"
+            },
+            {
+              "question": "Quelle est la capitale de l'Irlande du Nord ?",
+              "image": "",
+              "answer": "Belfast"
+            }
+          ]
+        },
+        {
+          "name": "C7",
+          "cards": [
+            {
+              "question": "A Londres ou est placé le plus grand sapin lors de la fête de Noël ?",
+              "image": "",
+              "answer": "A Trafalgar Square"
+            },
+            {
+              "question": "Quel est le nom du plus célèbre magasin de jouet de Londres, très visité vers Noël ?",
+              "image": "",
+              "answer": "Hamleys"
+            },
+            {
+              "question": "Comment appelle-t-on les chants traditionnel de Noël au Royaume Uni ?",
+              "image": "",
+              "answer": "Christmas carols"
+            },
+            {
+              "question": "Comment s'appellent les chaussette dans lesquelles on met des petits cadeaux et des friandises à Noël au Royaume Uni ?",
+              "image": "",
+              "answer": "Christmas stocking"
+            },
+            {
+              "question": "Cite au moins deux plats traditionnels des repas de Noël britannique.",
+              "image": "",
+              "answer": "- turkey\n- vegetables\n- mince pies\n- pudding\n- cake"
+            },
+            {
+              "question": "Comment dit-on « Père Noël »\n- en anglais britannique ?\n- en anglais américain ?",
+              "image": "",
+              "answer": "- Father Christmas\n- Santa Claus"
+            }
+          ]
+        },
+        {
+          "name": "C12",
+          "cards": [
+            {
+              "question": "Quelles ont les couleurs du drapeau irlandais ?",
+              "image": "",
+              "answer": "Vert, blanc et orange"
+            },
+            {
+              "question": "Quel est l’emblème de l'Irlande ?",
+              "image": "",
+              "answer": "C'est le trèfle."
+            },
+            {
+              "question": "De quel pays est originaire la fête de la Saint-Patrick ?",
+              "image": "",
+              "answer": "de l'Irlande"
+            },
+            {
+              "question": "Comment appelle-t-on le petit elfe de la Saint-Patrick ?",
+              "image": "",
+              "answer": "un Leprechaun"
+            },
+            {
+              "question": "Quelle est la capitale de l'Irlande ?",
+              "image": "",
+              "answer": "Dublin"
+            },
+            {
+              "question": "A quelle date est célébré la Saint-Patrick ?\nQuelle couleur est associée à cette fête ?",
+              "image": "",
+              "answer": "le 17 mars\nLe vert"
+            }
+          ]
+        },
+        {
+          "name": "C15",
+          "cards": [
+            {
+              "question": "Que veut dire NYC ?",
+              "image": "",
+              "answer": "New York City"
+            },
+            {
+              "question": "Combien y a-t-il d'étage dans l'Empire State Building de New York ?",
+              "image": "",
+              "answer": "102 étages"
+            },
+            {
+              "question": "Combien y a-t-il de taxis à New-York environ ?",
+              "image": "",
+              "answer": "13000"
+            },
+            {
+              "question": "Comment a été renommé l'emplacement des « Twin Towers » après leur destruction ?",
+              "image": "",
+              "answer": "Ground Zero"
+            },
+            {
+              "question": "A quelle date les « Twin Towers » ont-elles été détruites ?",
+              "image": "",
+              "answer": "le 11 septembre 2001"
+            }
+          ]
+        },
+        {
+          "name": "C16",
+          "cards": [
+            {
+              "question": "Quelle est la capitale des États-Unis ?",
+              "image": "",
+              "answer": "Washington DC"
+            },
+            {
+              "question": "Quelle est la plus grande ville des États-Unis ?",
+              "image": "",
+              "answer": "New York"
+            }
+          ]
+        },
+        {
+          "name": "The Gruffalo - Animals",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_01.jpg",
+              "answer": "a crocodile"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_02.jpg",
+              "answer": "a buffalo"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_03.jpg",
+              "answer": "a grizzly bear"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_04.jpg",
+              "answer": "a lion"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_05.jpg",
+              "answer": "a mouse"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_06.jpg",
+              "answer": "a fox"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_07.jpg",
+              "answer": "a snake"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_08.jpg",
+              "answer": "an owl"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_the_gruffalo_animals_09.jpg",
+              "answer": "a tiger"
+            }
+          ]
+        },
+        {
+          "name": "Classroom instructions",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_01.jpg",
+              "answer": "Stand up."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_02.jpg",
+              "answer": "Sit down."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_03.jpg",
+              "answer": "Come in."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_04.jpg",
+              "answer": "Listen!"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_05.jpg",
+              "answer": "Look!"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_06.jpg",
+              "answer": "Repeat!"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_07.jpg",
+              "answer": "Be quiet."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_08.jpg",
+              "answer": "Fold."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_09.jpg",
+              "answer": "Take your pen. Write!"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_10.jpg",
+              "answer": "Draw."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_11.jpg",
+              "answer": "Colour."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_12.jpg",
+              "answer": "Stick."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_13.jpg",
+              "answer": "Open the window."
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_classroom_instructions_14.jpg",
+              "answer": "Cut."
+            }
+          ]
+        },
+        {
+          "name": "Body parts",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_01.jpg",
+              "answer": "arms"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_02.jpg",
+              "answer": "a hand"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_03.jpg",
+              "answer": "an ear"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_04.jpg",
+              "answer": "a head"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_05.jpg",
+              "answer": "a finger"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_06.jpg",
+              "answer": "a foot"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_07.jpg",
+              "answer": "hair"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_08.jpg",
+              "answer": "legs"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_09.jpg",
+              "answer": "teeth"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_10.jpg",
+              "answer": "a nose"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_11.jpg",
+              "answer": "feet"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_12.jpg",
+              "answer": "an eye"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_13.jpg",
+              "answer": "shoulders"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_body_parts_14.jpg",
+              "answer": "a mouth"
+            }
+          ]
+        },
+        {
+          "name": "Halloween vocabulary",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_01.jpg",
+              "answer": "Jack O' Lantern"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_02.jpg",
+              "answer": "a bat"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_03.jpg",
+              "answer": "a vampire"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_04.jpg",
+              "answer": "a spider"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_05.jpg",
+              "answer": "a monster"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_06.jpg",
+              "answer": "a candy"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_07.jpg",
+              "answer": "a mummy"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_08.jpg",
+              "answer": "a witch"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_09.jpg",
+              "answer": "a skeleton"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_10.jpg",
+              "answer": "a black cat"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_11.jpg",
+              "answer": "a pumpkin"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album2_halloween_vocabulary_12.jpg",
+              "answer": "a ghost"
+            }
+          ]
+        },
+        {
+          "name": "Album 8 - Transport",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_01.jpg",
+              "answer": "a bike"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_02.jpg",
+              "answer": "a plane"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_03.jpg",
+              "answer": "a bus"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_04.jpg",
+              "answer": "a sailing boat"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_05.jpg",
+              "answer": "a train"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_06.jpg",
+              "answer": "a car"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_07.jpg",
+              "answer": "a helicopter"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_08.jpg",
+              "answer": "on foot"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_transport_09.jpg",
+              "answer": "a motorbike"
+            }
+          ]
+        },
+        {
+          "name": "Album 8 - In town",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album8_town_01.jpg",
+              "answer": "a post office"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_town_02.jpg",
+              "answer": "a supermarket"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_town_03.jpg",
+              "answer": "a museum"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_town_04.jpg",
+              "answer": "a restaurant"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_town_05.jpg",
+              "answer": "a bank"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_town_06.jpg",
+              "answer": "a chemist's"
+            }
+          ]
+        },
+        {
+          "name": "Album 8 - House",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album8_house_01.jpg",
+              "answer": "a garage"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_02.jpg",
+              "answer": "a kitchen"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_03.jpg",
+              "answer": "a study"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_04.jpg",
+              "answer": "a garden"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_05.jpg",
+              "answer": "a bedroom"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_06.jpg",
+              "answer": "a dining room"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_07.jpg",
+              "answer": "a swimming pool"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_08.jpg",
+              "answer": "a bathroom"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_house_09.jpg",
+              "answer": "a living room"
+            }
+          ]
+        },
+        {
+          "name": "Album 8 - Ingredients",
+          "cards": [
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_01.jpg",
+              "answer": "salt"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_02.jpg",
+              "answer": "sugar"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_03.jpg",
+              "answer": "wheat"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_04.jpg",
+              "answer": "apples"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_05.jpg",
+              "answer": "butter"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_06.jpg",
+              "answer": "Sri Lanka"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_07.jpg",
+              "answer": "cinnamon"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_08.jpg",
+              "answer": "an egg"
+            },
+            {
+              "question": "",
+              "image": "Images/English/album8_ingredients_09.jpg",
+              "answer": "milk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Français",
+      "themes": [
+        {
+          "name": "Poésie",
+          "cards": [
+            {
+              "question": "Donne la définition de poème.",
+              "image": "",
+              "answer": "C’est le texte. Dans le cahier, les élèves copient des poèmes."
+            },
+            {
+              "question": "Donne la définition de poésie.",
+              "image": "",
+              "answer": "C’est le genre littéraire. C’est l’art de manier la rime, le vers, de réciter."
+            },
+            {
+              "question": "Comment appelle-t-on :\n- une strophe de 3 vers ?\n- une strophe de 4 vers ?",
+              "image": "",
+              "answer": "un tercet\nUn quatrain"
+            },
+            {
+              "question": "Comment appelle-t-on un vers à 12 syllabes ?",
+              "image": "",
+              "answer": "un alexandrin"
+            },
+            {
+              "question": "Donne la définition de rimes.",
+              "image": "",
+              "answer": "C'est une disposition de sons identiques à la fin de plusieurs vers."
+            },
+            {
+              "question": "Donne la définition de vers.",
+              "image": "",
+              "answer": "C'est une ligne du poème."
+            },
+            {
+              "question": "Donne la définition d'anaphore.",
+              "image": "",
+              "answer": "C'est une répétition en début de vers."
+            },
+            {
+              "question": "Donne la définition de la fable.",
+              "image": "",
+              "answer": "C'est un court récit, souvent en vers, qui raconte une histoire et qui donne une leçon."
+            },
+            {
+              "question": "Donne la définition de strophe.",
+              "image": "",
+              "answer": "C'est un paragraphe dans le poème."
+            },
+            {
+              "question": "Qu'est-ce qu'un sonnet ?",
+              "image": "",
+              "answer": "un poème composé de 2 quatrains et de 2 tercets"
+            },
+            {
+              "question": "Donne la définition de la morale.",
+              "image": "",
+              "answer": "C'est la leçon que l'on apprend à la fin d'une fable."
+            }
+          ]
+        },
+        {
+          "name": "Vocabulaire",
+          "cards": [
+            {
+              "question": "Donne la définition de champ lexical.",
+              "image": "",
+              "answer": "Ensemble de mots qui appartiennent au même domaine."
+            },
+            {
+              "question": "Donne 3 mots de la famille de « forêt ».",
+              "image": "",
+              "answer": "Réponses possibles :\nforêt, forestier, déforestation, foresterie …"
+            },
+            {
+              "question": "Donne 3 mots du champ lexical de « forêt ».",
+              "image": "",
+              "answer": "Réponses possibles parmi d'autres :\narbres, bucheron, sapin, clairière, cerf..."
+            },
+            {
+              "question": "Qu'est-ce que le registre de langue ?",
+              "image": "",
+              "answer": "La façon de s'exprimer à l'écrit comme à l'oral en fonction des circonstances."
+            },
+            {
+              "question": "Donne la définition de famille de mots.",
+              "image": "",
+              "answer": "Ensemble de mots formés à partir d'un même radical et ayant un rapport de sens."
+            },
+            {
+              "question": "Pour le mot « voiture », donne un exemple de mot correspondant en langage familier.\nEn langage soutenu",
+              "image": "",
+              "answer": "- bagnole\n- véhicule"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Histoire des arts",
+      "themes": [
+        {
+          "name": "Art du visuel",
+          "cards": [
+            {
+              "question": "De quel dictateur Charlie Chapline se moque-t-il dans son film \"Le Dictateur\" ?",
+              "image": "",
+              "answer": "Adolph Hitler"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+</script>
+<script>
+const DB = window.FLASHCARDS_DB;
+const icons = {"Histoire":"🏺","Géographie":"🌍","Sciences":"🔬","English":"🇬🇧","Poésies":"🪶"};
+let discipline=null, theme=null, cards=[], index=0, flipped=false;
+
+const $=id=>document.getElementById(id);
+function show(name){
+  ["home","themes","study"].forEach(id=>$(id).classList.toggle("hidden",id!==name));
+}
+function countCards(d){return d.themes.reduce((n,t)=>n+t.cards.length,0)}
+
+function renderDisciplines(){
+  const box=$("disciplineGrid"); box.innerHTML="";
+  DB.disciplines.forEach(d=>{
+    const b=document.createElement("button"); b.className="tile";
+    b.innerHTML=`<div class="discipline-icon">${icons[d.name]||"📚"}</div><strong>${escapeHtml(d.name)}</strong><span>${d.themes.length} thèmes • ${countCards(d)} cartes</span>`;
+    b.onclick=()=>openDiscipline(d);
+    box.appendChild(b);
+  });
+  $("subtitle").textContent=`${DB.disciplines.reduce((n,d)=>n+countCards(d),0)} cartes disponibles`;
+}
+function openDiscipline(d){
+  discipline=d; $("disciplineName").textContent=d.name;
+  $("subtitle").textContent=d.name;
+  const box=$("themeGrid"); box.innerHTML="";
+  d.themes.forEach(t=>{
+    const b=document.createElement("button"); b.className="tile";
+    b.innerHTML=`<strong>${escapeHtml(t.name)}</strong><span>${t.cards.length} cartes</span>`;
+    b.onclick=()=>openTheme(t);
+    box.appendChild(b);
+  });
+  show("themes");
+}
+function openTheme(t){
+  theme=t; cards=t.cards.map(c=>({...c})); index=0;
+  $("studyTitle").textContent=`${discipline.name} › ${t.name}`;
+  $("subtitle").textContent=t.name;
+  renderCard(); show("study");
+}
+function renderCard(){
+  if(!cards.length)return;
+  flipped=false; $("flashcard").classList.remove("flipped");
+  const c=cards[index];
+  const img=$("questionImage"), qt=$("questionText");
+  if(c.image){
+    img.src=c.image; img.classList.remove("hidden");
+    img.onerror=()=>{img.classList.add("hidden");};
+  }else{
+    img.removeAttribute("src"); img.classList.add("hidden");
+  }
+  qt.textContent=c.question||"";
+  qt.classList.toggle("with-image",!!c.image && !!c.question);
+  // Pour les cartes purement illustrées, ne pas afficher de blanc gênant
+  qt.classList.toggle("hidden",!c.question);
+  $("answerText").textContent=c.answer||"";
+  $("progress").textContent=`Carte ${index+1} / ${cards.length}`;
+  $("flip").textContent="Retourner";
+}
+function flip(){
+  flipped=!flipped; $("flashcard").classList.toggle("flipped",flipped);
+  $("flip").textContent=flipped?"Voir la question":"Retourner";
+}
+function move(n){index=(index+n+cards.length)%cards.length; renderCard()}
+function shuffle(){
+  for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}
+  index=0;renderCard();
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+
+$("themesBack").onclick=()=>{show("home");$("subtitle").textContent="Choisis une discipline"};
+$("studyBack").onclick=()=>{show("themes");$("subtitle").textContent=discipline.name};
+$("flashcard").onclick=flip; $("flip").onclick=flip;
+$("prev").onclick=()=>move(-1); $("next").onclick=()=>move(1); $("shuffle").onclick=shuffle;
+$("flashcard").onkeydown=e=>{
+ if(e.key==="Enter"||e.key===" "){e.preventDefault();flip()}
+ if(e.key==="ArrowRight")move(1);
+ if(e.key==="ArrowLeft")move(-1);
+};
+renderDisciplines();
+
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
