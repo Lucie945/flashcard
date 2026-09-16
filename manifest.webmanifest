@@ -1,7 +1,7 @@
 {
-  "name": "Flashcard",
-  "short_name": "Flashcard",
-  "description": "Flashcards scolaires",
+  "name": "Questions / Réponses",
+  "short_name": "Q/R",
+  "description": "Questions / Réponses scolaires",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
