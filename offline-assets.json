@@ -63,5 +63,13 @@
   "./Images/Ceintures_histoire/57_leuro.png",
   "./Images/Histoire_des_arts/01_la_tour_eiffel.png",
   "./Images/Histoire_des_arts/02_lamphitheatre_de_nimes.png",
-  "./Images/Histoire_des_arts/03_la_cathedrale_de_reims.png"
+  "./Images/Histoire_des_arts/03_la_cathedrale_de_reims.png",
+  "./Images/Maths/geom_cercle_vocabulaire.png",
+  "./Images/Maths/geom_polygones.png",
+  "./Images/Maths/geom_quadrilateres.png",
+  "./Images/Maths/geom_quadrillage_points.png",
+  "./Images/Maths/geom_solides.png",
+  "./Images/Maths/geom_symetrie.png",
+  "./Images/Maths/geom_triangles.png",
+  "./Images/Maths/mesure_angles.png"
 ]
