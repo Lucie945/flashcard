@@ -1,4 +1,4 @@
-const CACHE_NAME = "flashcard-20261001005427";
+const CACHE_NAME = "flashcard-20261011192823";
 const ASSET_LIST = "./offline-assets.json";
 
 self.addEventListener("install", event => {
